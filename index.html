@@ -5,13 +5,15 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<!-- Establish high-priority font asset pipes -->
-<link rel="preconnect" href="https://googleapis.com">
-<link rel="preconnect" href="https://gstatic.com" crossorigin>
-<link href="https://googleapis.com/css2?family=Rubik:wght@700&display=swap" rel="stylesheet">
-
 <style>
-/* Define standard CSS fallback hooks for static UI elements */
+/* CRITICAL FIX: Direct binary base64 injection of Rubik Bold (Hebrew subset included) */
+@font-face {
+    font-family: 'RubikCanvas';
+    src: url('data:font/woff2;charset=utf-8;base64,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) format(\'woff2\');
+    font-weight: 700;
+    font-style: normal;
+}
+
 html, body {
     margin: 0;
     padding: 0;
@@ -19,7 +21,7 @@ html, body {
     background: black;
     width: 100%;
     height: 100%;
-    font-family: 'Rubik', sans-serif;
+    font-family: 'RubikCanvas', sans-serif;
 }
 
 #canvas {
@@ -55,7 +57,7 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Rubik', sans-serif;
+    font-family: 'RubikCanvas', sans-serif;
 }
 
 button:active {
@@ -109,7 +111,7 @@ button:active {
     border-radius: 24px;
     font-size: 16px;
     font-weight: 700;
-    font-family: 'Rubik', sans-serif;
+    font-family: 'RubikCanvas', sans-serif;
     border: none;
     cursor: pointer;
 }
@@ -236,11 +238,10 @@ function drawLetter(context){
     const w = window.innerWidth;
     const h = window.innerHeight;
     
-    // CALCULATE STATIC PX METRICS: Mobile canvas engines require strict px parameters rather than raw CSS viewport syntax
+    // Explicit dynamic pixel calculation for low-level mobile engines
     const computedFontSize = Math.floor(h * 0.75);
 
-    // BIND STANDARDIZED FONT PATTERN: Explicit layout parameters protect against cross-platform fallbacks
-    context.font = `700 ${computedFontSize}px Rubik, sans-serif`;
+    context.font = `700 ${computedFontSize}px RubikCanvas, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.lineWidth = 4;
@@ -261,17 +262,16 @@ function draw(){
     requestAnimationFrame(draw);
 }
 
-// FORCE MEMORY SYNC: Ensure Rubik is loaded before starting the canvas drawing loop
+// Execute font verification against local string cache
 if (document.fonts && document.fonts.load) {
-    document.fonts.load("700 16px Rubik").then(() => {
+    document.fonts.load("700 16px RubikCanvas").then(() => {
         if (video.readyState >= 2) {
             draw();
         } else {
             video.addEventListener("loadeddata", draw);
         }
     }).catch(err => {
-        console.error("Font loading failure:", err);
-        // Fallback execution tracking block
+        console.error("Font trace loop mismatch:", err);
         if (video.readyState >= 2) draw(); else video.addEventListener("loadeddata", draw);
     });
 } else {
@@ -301,39 +301,9 @@ function capture(){
     stitchCtx.save();
     stitchCtx.translate(w * dpr, 0);
     stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx);
-    stitchCtx.drawLetter = drawLetter; 
-    stitchCtx.drawLetter(stitchCtx);
-    stitchCtx.restore();
 
-    activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
-
-    stitchCanvas.toBlob((blob) => {
-        if (!blob) return;
-        activeBlob = blob;
-        const previewImg = document.getElementById("previewImage");
-        previewImg.src = URL.createObjectURL(blob);
-        document.getElementById("previewOverlay").style.display = "flex";
-    }, "image/jpeg", 0.92);
-}
-
-async function shareCapturedImage() {
-    if (!activeBlob) return;
-    const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-            await navigator.share({
-                files: [file],
-                title: `Hebrew Trace: ${letter}`,
-                text: 'Side-by-side composition snapshot trace.'
-            });
-        } catch (err) {
-            console.log("Share canceled:", err);
-        }
-    } else {
-        alert("Sharing sheet interface is blocked or unsupported in this context.");
-    }
-}
+      drawCamera(stitchCtx);stitchCtx.drawLetter = drawLetter;stitchCtx.drawLetter(stitchCtx);stitchCtx.restore();activeFilename = hebrew_trace_${getTimestamp()}.jpg;stitchCanvas.toBlob((blob) => {if (!blob) return;activeBlob = blob;const previewImg = document.getElementById("previewImage");previewImg.src = URL.createObjectURL(blob);document.getElementById("previewOverlay").style.display = "flex";}, "image/jpeg", 0.92);}async function shareCapturedImage() {if (!activeBlob) return;const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });if (navigator.canShare && navigator.canShare({ files: [file] })) {try {await navigator.share({files: [file],title: Hebrew Trace: ${letter},text: 'Side-by-side composition snapshot trace.'});} catch (err) {console.log("Share canceled:", err);}} else {alert("Sharing sheet interface is blocked or unsupported in this context.");}}
+      
 
 // 3. Android / Universal Browser File Download Fallback Layer
 function downloadDirectly() {
