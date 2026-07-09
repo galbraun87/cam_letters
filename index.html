@@ -5,6 +5,9 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+<!-- Load Google Font for high-fidelity Hebrew character rendering across platforms -->
+<link href="https://googleapis.com" rel="stylesheet">
+
 <style>
 html, body {
     margin: 0;
@@ -44,87 +47,73 @@ button {
     border: none;
     font-size: 24px;
     background: rgba(255,255,255,0.85);
+    cursor: pointer;
 }
 
+button:active {
+    background: rgba(255,255,255,0.6);
+}
 </style>
 </head>
 
 <body>
 
 <video id="video" autoplay playsinline muted></video>
-
 <canvas id="canvas"></canvas>
 
 <div class="controls">
     <button onclick="capture()">📸</button>
 </div>
 
-
 <script>
-
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 let letter = "א";  // Default letter
 
-
 // Get letter from URL parameter
 function getLetter() {
     const params = new URLSearchParams(window.location.search);
     const urlLetter = params.get("letter");
-    
     if (urlLetter) {
         letter = urlLetter;
     }
 }
-
 getLetter();
 
-
 // Camera - with proper stream binding and metadata handling
-
 navigator.mediaDevices.getUserMedia({
     video: {
         facingMode: {
             ideal: "environment"
         }
     },
-    audio:false
+    audio: false
 })
 .then(stream => {
-    // 1. Assign the stream
     video.srcObject = stream;
-    
-    // 2. Explicitly wait for metadata to load, then play
     video.onloadedmetadata = () => {
-        video.play()
-            .catch(err => console.error("Video play failed:", err));
+        video.play().catch(err => console.error("Video play failed:", err));
     };
 })
 .catch(err => {
     alert("Camera error: " + err.message);
 });
 
-// Handle tab/app switching - re-initialize camera if Android killed the stream
+// Handle tab/app switching - re-initialize camera if Android/iOS killed the stream
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
         const tracks = video.srcObject?.getTracks();
         if (tracks && tracks.length > 0 && tracks[0].readyState === "ended") {
-            console.log("Camera stream ended, reinitializing...");
             navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: {
-                        ideal: "environment"
-                    }
-                },
-                audio:false
+                video: { facingMode: { ideal: "environment" } },
+                audio: false
             })
             .then(stream => {
                 video.srcObject = stream;
                 video.onloadedmetadata = () => {
-                    video.play()
-                        .catch(err => console.error("Video play failed:", err));
+                    video.play().catch(err => console.error("Video play failed:", err));
                 };
             })
             .catch(err => {
@@ -134,90 +123,44 @@ document.addEventListener("visibilitychange", () => {
     }
 });
 
-
-
 // Canvas sizing
-
 function resize(){
-
     const dpr = window.devicePixelRatio || 1;
-
-    canvas.width =
-        window.innerWidth * dpr;
-
-    canvas.height =
-        window.innerHeight * dpr;
-
-    ctx.setTransform(
-        dpr,
-        0,
-        0,
-        dpr,
-        0,
-        0
-    );
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-window.addEventListener(
-    "resize",
-    resize
-);
-
+window.addEventListener("resize", resize);
 resize();
 
-
-
 // Draw the camera frame
-
 function drawCamera(context){
-
     const w = window.innerWidth;
     const h = window.innerHeight;
-
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
     if (!vw || !vh) return;
 
-
-    const scale = Math.max(
-        w / vw,
-        h / vh
-    );
-
+    const scale = Math.max(w / vw, h / vh);
     const dw = vw * scale;
     const dh = vh * scale;
-
     const dx = (w - dw) / 2;
     const dy = (h - dh) / 2;
 
-
-    context.drawImage(
-        video,
-        dx,
-        dy,
-        dw,
-        dh
-    );
+    context.drawImage(video, dx, dy, dw, dh);
 }
 
-
-
-// Draw letter overlay
-
+// Draw letter overlay - Modified to use Google Rubik font
 function drawLetter(context){
-
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-
-    context.font =
-        "bold 75vh Arial";
-
+    context.font = "700 75vh 'Rubik', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-
-    context.lineWidth = 2;
+    context.lineWidth = 4; // Slightly boosted width to make sure it scales beautifully on high-res stitching
     context.strokeStyle = "white";
 
     context.strokeText(
@@ -227,127 +170,89 @@ function drawLetter(context){
     );
 }
 
-
-
 // Animation loop
-
 function draw(){
-
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-
-    ctx.clearRect(
-        0,
-        0,
-        w,
-        h
-    );
-
+    ctx.clearRect(0, 0, w, h);
 
     if(video.readyState >= 2){
-
         drawCamera(ctx);
         drawLetter(ctx);
-
     }
-
-
     requestAnimationFrame(draw);
 }
 
-
-video.addEventListener(
-    "loadeddata",
-    draw
-);
-
+video.addEventListener("loadeddata", draw);
 
 // Get timestamp for filename
 function getTimestamp() {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    
-    return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 }
 
-
-// Save image helper
-
-function downloadCanvas(canvas, filename){
-
-    const link = document.createElement("a");
-    
-    const timestamp = getTimestamp();
-    const filenameWithTimestamp = filename.replace('.png', `_${timestamp}.png`);
-
-    link.download = filenameWithTimestamp;
-
-    link.href =
-        canvas.toDataURL(
-            "image/png"
-        );
-
-    link.click();
-}
-
-
-
-// Capture two images
-
+// New Capture Engine: Side-by-side stitch and Share API pipeline
 function capture(){
-
     const w = window.innerWidth;
     const h = window.innerHeight;
-
     const dpr = window.devicePixelRatio || 1;
 
+    // Create a high-res stitch canvas exactly twice the screen layout width
+    const stitchCanvas = document.createElement("canvas");
+    stitchCanvas.width = (w * dpr) * 2;
+    stitchCanvas.height = h * dpr;
 
-    // ----- Original camera only -----
+    const stitchCtx = stitchCanvas.getContext("2d");
 
-    const originalCanvas =
-        document.createElement("canvas");
+    // ----- Left Side: Original Frame -----
+    stitchCtx.save();
+    stitchCtx.scale(dpr, dpr);
+    drawCamera(stitchCtx);
+    stitchCtx.restore();
 
-    originalCanvas.width =
-        w * dpr;
+    // ----- Right Side: Preview Frame with Overlay -----
+    stitchCtx.save();
+    // Shift context coordinates horizontally past the first frame boundary
+    stitchCtx.translate(w * dpr, 0);
+    stitchCtx.scale(dpr, dpr);
+    drawCamera(stitchCtx);
+    drawLetter(stitchCtx);
+    stitchCtx.restore();
 
-    originalCanvas.height =
-        h * dpr;
+    // Target format setup
+    const filename = `hebrew_guide_${getTimestamp()}.jpg`;
 
+    // Process binary image array stream
+    stitchCanvas.toBlob(async (blob) => {
+        if (!blob) {
+            alert("Error processing captured image data.");
+            return;
+        }
 
-    const originalCtx =
-        originalCanvas.getContext("2d");
+        const file = new File([blob], filename, { type: "image/jpeg" });
 
-
-    originalCtx.scale(
-        dpr,
-        dpr
-    );
-
-
-    drawCamera(originalCtx);
-
-
-    downloadCanvas(
-        originalCanvas,
-        "original.png"
-    );
-
-
-
-    // ----- Current preview -----
-
-    downloadCanvas(
-        canvas,
-        "with_letter.png"
-    );
+        // System Share API initialization
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    files: [file],
+                    title: `Hebrew Trace: ${letter}`,
+                    text: 'Here is your original photo alongside your layout guide outline.'
+                });
+            } catch (err) {
+                // Graceful fallback ignore if the user simply closed or cancelled the share dialog sheet
+                console.log("System distribution sheet closed or failed:", err);
+            }
+        } else {
+            // Hard fallback processing if device security parameters lock out the sharing API (e.g. non-HTTPS environments)
+            const fallbackLink = document.createElement("a");
+            fallbackLink.download = filename;
+            fallbackLink.href = stitchCanvas.toDataURL("image/jpeg", 0.9);
+            fallbackLink.click();
+        }
+    }, "image/jpeg", 0.92); // Compressed high-efficiency 92% photo configuration
 }
-
 </script>
 
 </body>
