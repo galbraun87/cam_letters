@@ -127,9 +127,23 @@ function startCamera() {
     });
 }
 
-// For non-iOS, start camera after a small delay to allow page to fully load
+// For non-iOS, start camera immediately
 if (!isIOS()) {
-    setTimeout(startCamera, 100);
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: {
+                ideal: "environment"
+            }
+        },
+        audio: false
+    })
+    .then(stream => {
+        video.srcObject = stream;
+        cameraStarted = true;
+    })
+    .catch(err => {
+        alert("Camera error: " + err.message);
+    });
 }
 
 
@@ -254,7 +268,10 @@ function draw(){
 }
 
 
-draw();
+video.addEventListener(
+    "loadeddata",
+    draw
+);
 
 
 
