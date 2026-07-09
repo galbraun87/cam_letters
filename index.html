@@ -301,11 +301,40 @@ function capture(){
     stitchCtx.save();
     stitchCtx.translate(w * dpr, 0);
     stitchCtx.scale(dpr, dpr);
-
-      drawCamera(stitchCtx);stitchCtx.drawLetter = drawLetter;stitchCtx.drawLetter(stitchCtx);stitchCtx.restore();activeFilename = hebrew_trace_${getTimestamp()}.jpg;stitchCanvas.toBlob((blob) => {if (!blob) return;activeBlob = blob;const previewImg = document.getElementById("previewImage");previewImg.src = URL.createObjectURL(blob);document.getElementById("previewOverlay").style.display = "flex";}, "image/jpeg", 0.92);}async function shareCapturedImage() {if (!activeBlob) return;const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });if (navigator.canShare && navigator.canShare({ files: [file] })) {try {await navigator.share({files: [file],title: Hebrew Trace: ${letter},text: 'Side-by-side composition snapshot trace.'});} catch (err) {console.log("Share canceled:", err);}} else {alert("Sharing sheet interface is blocked or unsupported in this context.");}}
+    drawCamera(stitchCtx);
+    stitchCtx.drawLetter = drawLetter;
+    stitchCtx.drawLetter(stitchCtx);
+    stitchCtx.restore();
       
+    activeFilename = hebrew_trace_${getTimestamp()}.jpg;
+    stitchCanvas.toBlob((blob) => {
+        if (!blob) return;
+        activeBlob = blob;
+        const previewImg = document.getElementById("previewImage");
+        previewImg.src = URL.createObjectURL(blob);
+        document.getElementById("previewOverlay").style.display = "flex";
+    }, "image/jpeg", 0.92);
+}
+    
+async function shareCapturedImage() {
+    if (!activeBlob) return;
+    const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: 'Hebrew Trace: ${letter}',
+                text: 'Side-by-side composition snapshot trace.'
+            });
+        } catch (err) {
+            console.log("Share canceled:", err);
+        }
+    } else {
+        alert("Sharing sheet interface is blocked or unsupported in this context.");
+    }
+}
 
-// 3. Android / Universal Browser File Download Fallback Layer
+// 3. Android / UniversalBrowser File Download Fallback Layer
 function downloadDirectly() {
     if (!activeBlob) return;
     
