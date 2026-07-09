@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,12 +5,19 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<!-- Correctly load Google Fonts with explicit weights -->
+<!-- Load Google Fonts -->
 <link rel="preconnect" href="https://googleapis.com">
 <link rel="preconnect" href="https://gstatic.com" crossorigin>
 <link href="https://googleapis.com/css2?family=Rubik:wght@700&display=swap" rel="stylesheet">
 
 <style>
+/* CRITICAL FIX: Declaring a strict literal font family block for Canvas engines */
+@font-face {
+    font-family: RubikCanvas;
+    src: url('https://gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-B4i1UFU.woff2') format('woff2');
+    font-weight: 700;
+}
+
 html, body {
     margin: 0;
     padding: 0;
@@ -62,7 +68,7 @@ button:active {
     background: rgba(255,255,255,0.6);
 }
 
-/* New Modern Preview Screen Overlay Styles */
+/* Modern Preview Screen Overlay Styles */
 #previewOverlay {
     display: none;
     position: fixed;
@@ -141,7 +147,7 @@ button:active {
     <button onclick="capture()">📸</button>
 </div>
 
-<!-- New Interactive Image Review Markup Template -->
+<!-- Interactive Image Review Markup Template -->
 <div id="previewOverlay">
     <div class="preview-instruction">
         Review Capture<br>
@@ -238,7 +244,8 @@ function drawLetter(context){
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    context.font = "700 75vh 'Rubik', sans-serif";
+    // FIXED: Stripped internal quotes and passed explicit unquoted family tag alias
+    context.font = "700 75vh RubikCanvas, sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.lineWidth = 4;
@@ -259,7 +266,7 @@ function draw(){
     requestAnimationFrame(draw);
 }
 
-// FIXED: Wait until Rubik is downloaded into system memory BEFORE starting canvas execution
+// Wait until web fonts are completely resolved across operating networks
 document.fonts.ready.then(() => {
     if (video.readyState >= 2) {
         draw();
