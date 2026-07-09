@@ -46,17 +46,6 @@ button {
     background: rgba(255,255,255,0.85);
 }
 
-#letterDisplay {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    color: white;
-    font-size: 18px;
-    background: rgba(0,0,0,0.6);
-    padding: 10px 15px;
-    border-radius: 5px;
-    font-family: monospace;
-}
 </style>
 </head>
 
@@ -65,8 +54,6 @@ button {
 <video id="video" autoplay playsinline muted></video>
 
 <canvas id="canvas"></canvas>
-
-#<div id="letterDisplay"></div>
 
 <div class="controls">
     <button onclick="capture()">📸</button>
@@ -78,8 +65,6 @@ button {
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-#const letterDisplay = document.getElementById("letterDisplay");
-
 
 let letter = "א";  // Default letter
 
@@ -91,9 +76,6 @@ function getLetter() {
     
     if (urlLetter) {
         letter = urlLetter;
-        #letterDisplay.textContent = `Letter: ${letter}`;
-    } else {
-        #letterDisplay.textContent = `Letter: ${letter} (use ?letter=X)`;
     }
 }
 
