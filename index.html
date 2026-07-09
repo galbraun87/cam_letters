@@ -45,6 +45,18 @@ button {
     font-size: 24px;
     background: rgba(255,255,255,0.85);
 }
+
+#letterDisplay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: white;
+    font-size: 18px;
+    background: rgba(0,0,0,0.6);
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-family: monospace;
+}
 </style>
 </head>
 
@@ -54,10 +66,10 @@ button {
 
 <canvas id="canvas"></canvas>
 
+<div id="letterDisplay"></div>
+
 <div class="controls">
-    <button onclick="change(-1)">◀</button>
     <button onclick="capture()">📸</button>
-    <button onclick="change(1)">▶</button>
 </div>
 
 
@@ -66,21 +78,26 @@ button {
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+const letterDisplay = document.getElementById("letterDisplay");
 
 
-const letters = [
-    "ס",
-    "ל",
-    "ו",
-    "ב",
-    "ק",
-    "י",
-    "ה",
-    "2",
-    "6"
-];
+let letter = "א";  // Default letter
 
-let index = 0;
+
+// Get letter from URL parameter
+function getLetter() {
+    const params = new URLSearchParams(window.location.search);
+    const urlLetter = params.get("letter");
+    
+    if (urlLetter) {
+        letter = urlLetter;
+        letterDisplay.textContent = `Letter: ${letter}`;
+    } else {
+        letterDisplay.textContent = `Letter: ${letter} (use ?letter=X)`;
+    }
+}
+
+getLetter();
 
 
 // Camera
@@ -187,7 +204,7 @@ function drawLetter(context){
     context.strokeStyle = "white";
 
     context.strokeText(
-        letters[index],
+        letter,
         w / 2,
         h / 2 - h * 0.10
     );
@@ -227,17 +244,6 @@ video.addEventListener(
     "loadeddata",
     draw
 );
-
-
-
-// Change letter
-
-function change(direction){
-
-    index =
-        (index + direction + letters.length)
-        % letters.length;
-}
 
 
 
