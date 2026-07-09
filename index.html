@@ -5,7 +5,6 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<!-- Load Google Font for high-fidelity Hebrew character rendering across platforms -->
 <link href="https://googleapis.com" rel="stylesheet">
 
 <style>
@@ -16,6 +15,7 @@ html, body {
     background: black;
     width: 100%;
     height: 100%;
+    font-family: 'Rubik', sans-serif;
 }
 
 #canvas {
@@ -48,10 +48,80 @@ button {
     font-size: 24px;
     background: rgba(255,255,255,0.85);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 button:active {
     background: rgba(255,255,255,0.6);
+}
+
+/* New Modern Preview Screen Overlay Styles */
+#previewOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: 20px;
+}
+
+.preview-instruction {
+    color: #ccc;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 10px;
+}
+
+#previewImage {
+    max-width: 100%;
+    max-height: 65vh;
+    object-fit: contain;
+    border: 2px solid #333;
+    border-radius: 8px;
+    margin: auto 0;
+}
+
+.preview-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 300px;
+    margin-bottom: 20px;
+}
+
+.btn-action {
+    width: 100%;
+    height: 48px;
+    border-radius: 24px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-share {
+    background: #007aff;
+    color: white;
+}
+
+.btn-download {
+    background: #34c759;
+    color: white;
+}
+
+.btn-cancel {
+    background: #ff3b30;
+    color: white;
 }
 </style>
 </head>
@@ -65,14 +135,33 @@ button:active {
     <button onclick="capture()">📸</button>
 </div>
 
+<!-- New Interactive Image Review Markup Template -->
+<div id="previewOverlay">
+    <div class="preview-instruction">
+        Review Capture<br>
+        <span style="font-size: 11px; color: #888;">(iPhone users: Hold down on the image to save directly to Photos)</span>
+    </div>
+    
+    <img id="previewImage" alt="Captured layout stitch preview asset" />
+    
+    <div class="preview-actions">
+        <button class="btn-action btn-share" onclick="shareCapturedImage()">Share / Send</button>
+        <button class="btn-action btn-download" onclick="downloadDirectly()">Save to Device</button>
+        <button class="btn-action btn-cancel" onclick="closePreview()">Retake 🔄</button>
+    </div>
+</div>
+
 <script>
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-let letter = "א";  // Default letter
+// Global memory buckets holding current capture pointers
+let activeBlob = null;
+let activeFilename = "";
 
-// Get letter from URL parameter
+let letter = "א";
+
 function getLetter() {
     const params = new URLSearchParams(window.location.search);
     const urlLetter = params.get("letter");
@@ -82,13 +171,8 @@ function getLetter() {
 }
 getLetter();
 
-// Camera - with proper stream binding and metadata handling
 navigator.mediaDevices.getUserMedia({
-    video: {
-        facingMode: {
-            ideal: "environment"
-        }
-    },
+    video: { facingMode: { ideal: "environment" } },
     audio: false
 })
 .then(stream => {
@@ -101,7 +185,6 @@ navigator.mediaDevices.getUserMedia({
     alert("Camera error: " + err.message);
 });
 
-// Handle tab/app switching - re-initialize camera if Android/iOS killed the stream
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
         const tracks = video.srcObject?.getTracks();
@@ -116,25 +199,20 @@ document.addEventListener("visibilitychange", () => {
                     video.play().catch(err => console.error("Video play failed:", err));
                 };
             })
-            .catch(err => {
-                console.error("Camera reinitialization error:", err);
-            });
+            .catch(err => console.error("Camera reinitialization error:", err));
         }
     }
 });
 
-// Canvas sizing
 function resize(){
     const dpr = window.devicePixelRatio || 1;
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-
 window.addEventListener("resize", resize);
 resize();
 
-// Draw the camera frame
 function drawCamera(context){
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -152,7 +230,6 @@ function drawCamera(context){
     context.drawImage(video, dx, dy, dw, dh);
 }
 
-// Draw letter overlay - Modified to use Google Rubik font
 function drawLetter(context){
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -160,21 +237,15 @@ function drawLetter(context){
     context.font = "700 75vh 'Rubik', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.lineWidth = 4; // Slightly boosted width to make sure it scales beautifully on high-res stitching
+    context.lineWidth = 4;
     context.strokeStyle = "white";
 
-    context.strokeText(
-        letter,
-        w / 2,
-        h / 2 - h * 0.10
-    );
+    context.strokeText(letter, w / 2, h / 2 - h * 0.10);
 }
 
-// Animation loop
 function draw(){
     const w = window.innerWidth;
     const h = window.innerHeight;
-
     ctx.clearRect(0, 0, w, h);
 
     if(video.readyState >= 2){
@@ -183,75 +254,99 @@ function draw(){
     }
     requestAnimationFrame(draw);
 }
-
 video.addEventListener("loadeddata", draw);
 
-// Get timestamp for filename
 function getTimestamp() {
     const now = new Date();
     return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 }
 
-// New Capture Engine: Side-by-side stitch and Share API pipeline
+// 1. Capture and generation layer
 function capture(){
     const w = window.innerWidth;
     const h = window.innerHeight;
     const dpr = window.devicePixelRatio || 1;
 
-    // Create a high-res stitch canvas exactly twice the screen layout width
     const stitchCanvas = document.createElement("canvas");
     stitchCanvas.width = (w * dpr) * 2;
     stitchCanvas.height = h * dpr;
-
     const stitchCtx = stitchCanvas.getContext("2d");
 
-    // ----- Left Side: Original Frame -----
+    // Render Left
     stitchCtx.save();
     stitchCtx.scale(dpr, dpr);
     drawCamera(stitchCtx);
     stitchCtx.restore();
 
-    // ----- Right Side: Preview Frame with Overlay -----
+    // Render Right
     stitchCtx.save();
-    // Shift context coordinates horizontally past the first frame boundary
     stitchCtx.translate(w * dpr, 0);
     stitchCtx.scale(dpr, dpr);
     drawCamera(stitchCtx);
     drawLetter(stitchCtx);
     stitchCtx.restore();
 
-    // Target format setup
-    const filename = `hebrew_guide_${getTimestamp()}.jpg`;
+    activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
 
-    // Process binary image array stream
-    stitchCanvas.toBlob(async (blob) => {
-        if (!blob) {
-            alert("Error processing captured image data.");
-            return;
+    // Process canvas into data strings and open the review overlay
+    stitchCanvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        activeBlob = blob;
+        
+        // Populate the image preview container
+        const previewImg = document.getElementById("previewImage");
+        previewImg.src = URL.createObjectURL(blob);
+        
+        // Open the interface window overlay
+        document.getElementById("previewOverlay").style.display = "flex";
+    }, "image/jpeg", 0.92);
+}
+
+// 2. Share Engine execution
+async function shareCapturedImage() {
+    if (!activeBlob) return;
+    
+    const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });
+    
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: `Hebrew Trace: ${letter}`,
+                text: 'Side-by-side composition snapshot trace.'
+            });
+        } catch (err) {
+            console.log("Share canceled:", err);
         }
+    } else {
+        alert("Sharing interface not supported by your current connection configuration.");
+    }
+}
 
-        const file = new File([blob], filename, { type: "image/jpeg" });
+// 3. Android / Universal Browser File Download Fallback Layer
+function downloadDirectly() {
+    if (!activeBlob) return;
+    
+    const downloadLink = document.createElement("a");
+    downloadLink.download = activeFilename;
+    downloadLink.href = URL.createObjectURL(activeBlob);
+    downloadLink.click();
+    
+    // Revoke object URL after structural click execution to optimize clean device browser engine runtimes
+    setTimeout(() => URL.revokeObjectURL(downloadLink.href), 100);
+}
 
-        // System Share API initialization
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({
-                    files: [file],
-                    title: `Hebrew Trace: ${letter}`,
-                    text: 'Here is your original photo alongside your layout guide outline.'
-                });
-            } catch (err) {
-                // Graceful fallback ignore if the user simply closed or cancelled the share dialog sheet
-                console.log("System distribution sheet closed or failed:", err);
-            }
-        } else {
-            // Hard fallback processing if device security parameters lock out the sharing API (e.g. non-HTTPS environments)
-            const fallbackLink = document.createElement("a");
-            fallbackLink.download = filename;
-            fallbackLink.href = stitchCanvas.toDataURL("image/jpeg", 0.9);
-            fallbackLink.click();
-        }
-    }, "image/jpeg", 0.92); // Compressed high-efficiency 92% photo configuration
+// 4. Interface state destruction layer
+function closePreview() {
+    document.getElementById("previewOverlay").style.display = "none";
+    
+    // Clean down old memory objects
+    if (document.getElementById("previewImage").src.startsWith("blob:")) {
+        URL.revokeObjectURL(document.getElementById("previewImage").src);
+    }
+    activeBlob = null;
+    activeFilename = "";
 }
 </script>
 
