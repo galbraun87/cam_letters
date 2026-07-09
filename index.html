@@ -76,6 +76,7 @@ const startButton = document.getElementById("startButton");
 
 let letter = "א";  // Default letter
 let cameraStarted = false;
+let drawingStarted = false;
 
 
 // Detect if device is iPhone/iOS
@@ -100,37 +101,6 @@ function getLetter() {
 }
 
 getLetter();
-
-
-// Start camera
-function startCamera() {
-    if (cameraStarted) return;
-    
-    cameraStarted = true;
-    if (startButton) startButton.style.display = "none";
-    
-    navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: {
-                ideal: "environment"
-            }
-        },
-        audio: false
-    })
-    .then(stream => {
-        video.srcObject = stream;
-    })
-    .catch(err => {
-        alert("Camera error: " + err.message);
-        cameraStarted = false;
-        if (startButton) startButton.style.display = "block";
-    });
-}
-
-// For non-iOS devices, start camera immediately
-if (!isIOS()) {
-    startCamera();
-}
 
 
 // Canvas sizing
@@ -254,8 +224,53 @@ function draw(){
 }
 
 
-// Start animation loop immediately, not waiting for loadeddata
-draw();
+// Start animation loop when video is ready
+video.addEventListener("loadedmetadata", function(){
+    if (!drawingStarted) {
+        drawingStarted = true;
+        draw();
+    }
+});
+
+// Fallback: ensure drawing starts after a reasonable delay
+setTimeout(function(){
+    if (!drawingStarted) {
+        drawingStarted = true;
+        draw();
+    }
+}, 1000);
+
+
+
+// Start camera
+function startCamera() {
+    if (cameraStarted) return;
+    
+    cameraStarted = true;
+    if (startButton) startButton.style.display = "none";
+    
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: {
+                ideal: "environment"
+            }
+        },
+        audio: false
+    })
+    .then(stream => {
+        video.srcObject = stream;
+    })
+    .catch(err => {
+        alert("Camera error: " + err.message);
+        cameraStarted = false;
+        if (startButton) startButton.style.display = "block";
+    });
+}
+
+// For non-iOS devices, start camera immediately
+if (!isIOS()) {
+    startCamera();
+}
 
 
 
