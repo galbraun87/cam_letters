@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -5,10 +6,10 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<!-- FIXED: Correct Google Fonts link loading the exact Weights directly -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<!-- Correctly load Google Fonts with explicit weights -->
+<link rel="preconnect" href="https://googleapis.com">
 <link rel="preconnect" href="https://gstatic.com" crossorigin>
-<link href="https://googleapis.com" rel="stylesheet">
+<link href="https://googleapis.com/css2?family=Rubik:wght@700&display=swap" rel="stylesheet">
 
 <style>
 html, body {
@@ -108,7 +109,7 @@ button:active {
     height: 48px;
     border-radius: 24px;
     font-size: 16px;
-    font-weight: 700; /* Linked directly to font weight loaded above */
+    font-weight: 700;
     font-family: 'Rubik', sans-serif;
     border: none;
     cursor: pointer;
@@ -161,10 +162,8 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Global memory buckets holding current capture pointers
 let activeBlob = null;
 let activeFilename = "";
-
 let letter = "א";
 
 function getLetter() {
@@ -239,7 +238,6 @@ function drawLetter(context){
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    // FIXED: Formatted specifically as a font property string without triggering system default fallback
     context.font = "700 75vh 'Rubik', sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
@@ -260,14 +258,21 @@ function draw(){
     }
     requestAnimationFrame(draw);
 }
-video.addEventListener("loadeddata", draw);
+
+// FIXED: Wait until Rubik is downloaded into system memory BEFORE starting canvas execution
+document.fonts.ready.then(() => {
+    if (video.readyState >= 2) {
+        draw();
+    } else {
+        video.addEventListener("loadeddata", draw);
+    }
+});
 
 function getTimestamp() {
     const now = new Date();
     return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 }
 
-// 1. Capture and generation layer
 function capture(){
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -294,27 +299,18 @@ function capture(){
 
     activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
 
-    // Process canvas into data strings and open the review overlay
     stitchCanvas.toBlob((blob) => {
         if (!blob) return;
-        
         activeBlob = blob;
-        
-        // Populate the image preview container
         const previewImg = document.getElementById("previewImage");
         previewImg.src = URL.createObjectURL(blob);
-        
-        // Open the interface window overlay
         document.getElementById("previewOverlay").style.display = "flex";
     }, "image/jpeg", 0.92);
 }
 
-// 2. Share Engine execution
 async function shareCapturedImage() {
     if (!activeBlob) return;
-    
     const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });
-    
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
             await navigator.share({
