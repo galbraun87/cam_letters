@@ -66,7 +66,7 @@ button {
 
 <canvas id="canvas"></canvas>
 
-<div id="letterDisplay"></div>
+#<div id="letterDisplay"></div>
 
 <div class="controls">
     <button onclick="capture()">📸</button>
@@ -78,7 +78,7 @@ button {
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const letterDisplay = document.getElementById("letterDisplay");
+#const letterDisplay = document.getElementById("letterDisplay");
 
 
 let letter = "א";  // Default letter
@@ -91,9 +91,9 @@ function getLetter() {
     
     if (urlLetter) {
         letter = urlLetter;
-        letterDisplay.textContent = `Letter: ${letter}`;
+        #letterDisplay.textContent = `Letter: ${letter}`;
     } else {
-        letterDisplay.textContent = `Letter: ${letter} (use ?letter=X)`;
+        #letterDisplay.textContent = `Letter: ${letter} (use ?letter=X)`;
     }
 }
 
