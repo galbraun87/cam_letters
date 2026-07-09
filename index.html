@@ -5,10 +5,10 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<!-- Establish direct link to Google Fonts compiler -->
+<!-- FIXED: Explicitly added &subset=hebrew to force Google Fonts to provide a continuous, unsplit script asset to Android Canvas -->
 <link rel="preconnect" href="https://googleapis.com">
 <link rel="preconnect" href="https://gstatic.com" crossorigin>
-<link href="https://googleapis.com/css2?family=Rubik:wght@700&display=swap" rel="stylesheet">
+<link href="https://googleapis.com/css2?family=Rubik:wght@700&subset=hebrew&display=swap" rel="stylesheet">
 
 <style>
 html, body {
@@ -189,7 +189,7 @@ navigator.mediaDevices.getUserMedia({
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
         const tracks = video.srcObject?.getTracks();
-        if (tracks && tracks.length > 0 && tracks[0].readyState === "ended") {
+        if (tracks && tracks.length > 0 && tracks.readyState === "ended") {
             navigator.mediaDevices.getUserMedia({
                 video: { facingMode: { ideal: "environment" } },
                 audio: false
@@ -235,10 +235,8 @@ function drawLetter(context){
     const w = window.innerWidth;
     const h = window.innerHeight;
     
-    // Explicit dynamic pixel calculation for low-level mobile engines
     const computedFontSize = Math.floor(h * 0.75);
 
-    // FIXED: Stripped internal layout quotes and targeted unquoted name family mapping parameters
     context.font = `700 ${computedFontSize}px Rubik, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
@@ -260,7 +258,7 @@ function draw(){
     requestAnimationFrame(draw);
 }
 
-// Execute font loading validation tracking checks
+// Force system execution verification on standard character layout bounds
 if (document.fonts && document.fonts.load) {
     document.fonts.load("700 16px Rubik").then(() => {
         if (video.readyState >= 2) {
