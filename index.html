@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: black;
+    width: 100%;
+    height: 100%;
+}
+
+#canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+}
+
+#video {
+    display: none;
+}
+
+.controls {
+    position: absolute;
+    bottom: 30px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    z-index: 10;
+}
+
+button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    font-size: 24px;
+    background: rgba(255,255,255,0.85);
+}
+</style>
+</head>
+
+<body>
+
+<video id="video" autoplay playsinline muted></video>
+
+<canvas id="canvas"></canvas>
+
+<div class="controls">
+    <button onclick="change(-1)">◀</button>
+    <button onclick="capture()">📸</button>
+    <button onclick="change(1)">▶</button>
+</div>
+
+
+<script>
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+
+const letters = [
+    "ס",
+    "ל",
+    "ו",
+    "ב",
+    "ק",
+    "י",
+    "ה",
+    "2",
+    "6"
+];
+
+let index = 0;
+
+
+// Camera
+
+navigator.mediaDevices.getUserMedia({
+    video: {
+        facingMode: {
+            ideal: "environment"
+        }
+    },
+    audio:false
+})
+.then(stream => {
+    video.srcObject = stream;
+})
+.catch(err => {
+    alert("Camera error: " + err.message);
+});
+
+
+
+// Canvas sizing
+
+function resize(){
+
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width =
+        window.innerWidth * dpr;
+
+    canvas.height =
+        window.innerHeight * dpr;
+
+    ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+    );
+}
+
+window.addEventListener(
+    "resize",
+    resize
+);
+
+resize();
+
+
+
+// Draw the camera frame
+
+function drawCamera(context){
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    if (!vw || !vh) return;
+
+
+    const scale = Math.max(
+        w / vw,
+        h / vh
+    );
+
+    const dw = vw * scale;
+    const dh = vh * scale;
+
+    const dx = (w - dw) / 2;
+    const dy = (h - dh) / 2;
+
+
+    context.drawImage(
+        video,
+        dx,
+        dy,
+        dw,
+        dh
+    );
+}
+
+
+
+// Draw letter overlay
+
+function drawLetter(context){
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+
+    context.font =
+        "bold 50vh Arial";
+
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+
+    context.lineWidth = 4;
+    context.strokeStyle = "white";
+
+    context.strokeText(
+        letters[index],
+        w / 2,
+        h / 2 - h * 0.10
+    );
+}
+
+
+
+// Animation loop
+
+function draw(){
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+
+    ctx.clearRect(
+        0,
+        0,
+        w,
+        h
+    );
+
+
+    if(video.readyState >= 2){
+
+        drawCamera(ctx);
+        drawLetter(ctx);
+
+    }
+
+
+    requestAnimationFrame(draw);
+}
+
+
+video.addEventListener(
+    "loadeddata",
+    draw
+);
+
+
+
+// Change letter
+
+function change(direction){
+
+    index =
+        (index + direction + letters.length)
+        % letters.length;
+}
+
+
+
+// Save image helper
+
+function downloadCanvas(canvas, filename){
+
+    const link = document.createElement("a");
+
+    link.download = filename;
+
+    link.href =
+        canvas.toDataURL(
+            "image/png"
+        );
+
+    link.click();
+}
+
+
+
+// Capture two images
+
+function capture(){
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    const dpr = window.devicePixelRatio || 1;
+
+
+    // ----- Original camera only -----
+
+    const originalCanvas =
+        document.createElement("canvas");
+
+    originalCanvas.width =
+        w * dpr;
+
+    originalCanvas.height =
+        h * dpr;
+
+
+    const originalCtx =
+        originalCanvas.getContext("2d");
+
+
+    originalCtx.scale(
+        dpr,
+        dpr
+    );
+
+
+    drawCamera(originalCtx);
+
+
+    downloadCanvas(
+        originalCanvas,
+        "original.png"
+    );
+
+
+
+    // ----- Current preview -----
+
+    downloadCanvas(
+        canvas,
+        "with_letter.png"
+    );
+}
+
+</script>
+
+</body>
+</html>
