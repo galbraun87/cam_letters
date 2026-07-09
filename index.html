@@ -51,18 +51,6 @@ button {
     padding: 15px 30px;
     font-size: 16px;
 }
-
-#letterDisplay {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    color: white;
-    font-size: 18px;
-    background: rgba(0,0,0,0.6);
-    padding: 10px 15px;
-    border-radius: 5px;
-    font-family: monospace;
-}
 </style>
 </head>
 
@@ -71,8 +59,6 @@ button {
 <video id="video" autoplay playsinline muted></video>
 
 <canvas id="canvas"></canvas>
-
-<div id="letterDisplay"></div>
 
 <div class="controls">
     <button id="startButton" style="display:none;" onclick="startCamera()">Start Camera</button>
@@ -85,7 +71,6 @@ button {
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const letterDisplay = document.getElementById("letterDisplay");
 const startButton = document.getElementById("startButton");
 
 
@@ -111,9 +96,6 @@ function getLetter() {
     
     if (urlLetter) {
         letter = urlLetter;
-        letterDisplay.textContent = `Letter: ${letter}`;
-    } else {
-        letterDisplay.textContent = `Letter: ${letter} (use ?letter=X)`;
     }
 }
 
@@ -145,16 +127,10 @@ function startCamera() {
     });
 }
 
-// For Android and other non-iOS devices, start camera on first user interaction
-document.addEventListener("touchstart", function initCamera() {
-    if (!cameraStarted && !isIOS()) {
-        startCamera();
-        document.removeEventListener("touchstart", initCamera);
-    }
-}, { once: false });
-
-// iOS: user must explicitly tap the button
-// Android: will start on first touch via the event listener above
+// For non-iOS devices, start camera immediately
+if (!isIOS()) {
+    startCamera();
+}
 
 
 // Canvas sizing
