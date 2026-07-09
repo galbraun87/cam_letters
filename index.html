@@ -45,12 +45,6 @@ button {
     font-size: 24px;
     background: rgba(255,255,255,0.85);
 }
-
-#startButton {
-    width: auto;
-    padding: 15px 30px;
-    font-size: 16px;
-}
 </style>
 </head>
 
@@ -61,7 +55,6 @@ button {
 <canvas id="canvas"></canvas>
 
 <div class="controls">
-    <button id="startButton" style="display:none;" onclick="startCamera()">Start Camera</button>
     <button onclick="capture()">📸</button>
 </div>
 
@@ -71,22 +64,9 @@ button {
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const startButton = document.getElementById("startButton");
 
 
 let letter = "א";  // Default letter
-let cameraStarted = false;
-
-
-// Detect if device is iPhone/iOS
-function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent);
-}
-
-// Show start button only for iOS
-if (isIOS()) {
-    startButton.style.display = "block";
-}
 
 
 // Get letter from URL parameter
@@ -102,49 +82,23 @@ function getLetter() {
 getLetter();
 
 
-// Start camera
-function startCamera() {
-    if (cameraStarted) return;
-    
-    cameraStarted = true;
-    if (startButton) startButton.style.display = "none";
-    
-    navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: {
-                ideal: "environment"
-            }
-        },
-        audio: false
-    })
-    .then(stream => {
-        video.srcObject = stream;
-    })
-    .catch(err => {
-        alert("Camera error: " + err.message);
-        cameraStarted = false;
-        if (startButton) startButton.style.display = "block";
-    });
-}
+// Camera
 
-// For non-iOS, start camera immediately
-if (!isIOS()) {
-    navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: {
-                ideal: "environment"
-            }
-        },
-        audio: false
-    })
-    .then(stream => {
-        video.srcObject = stream;
-        cameraStarted = true;
-    })
-    .catch(err => {
-        alert("Camera error: " + err.message);
-    });
-}
+navigator.mediaDevices.getUserMedia({
+    video: {
+        facingMode: {
+            ideal: "environment"
+        }
+    },
+    audio:false
+})
+.then(stream => {
+    video.srcObject = stream;
+})
+.catch(err => {
+    alert("Camera error: " + err.message);
+});
+
 
 
 // Canvas sizing
