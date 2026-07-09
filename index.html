@@ -45,6 +45,18 @@ button {
     font-size: 24px;
     background: rgba(255,255,255,0.85);
 }
+
+#letterDisplay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: white;
+    font-size: 18px;
+    background: rgba(0,0,0,0.6);
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-family: monospace;
+}
 </style>
 </head>
 
@@ -53,6 +65,8 @@ button {
 <video id="video" autoplay playsinline muted></video>
 
 <canvas id="canvas"></canvas>
+
+<div id="letterDisplay"></div>
 
 <div class="controls">
     <button onclick="capture()">📸</button>
@@ -64,6 +78,7 @@ button {
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+const letterDisplay = document.getElementById("letterDisplay");
 
 
 let letter = "א";  // Default letter
@@ -76,13 +91,16 @@ function getLetter() {
     
     if (urlLetter) {
         letter = urlLetter;
+        letterDisplay.textContent = `Letter: ${letter}`;
+    } else {
+        letterDisplay.textContent = `Letter: ${letter} (use ?letter=X)`;
     }
 }
 
 getLetter();
 
 
-// Camera
+// Camera - with proper stream binding and metadata handling
 
 navigator.mediaDevices.getUserMedia({
     video: {
@@ -93,10 +111,45 @@ navigator.mediaDevices.getUserMedia({
     audio:false
 })
 .then(stream => {
+    // 1. Assign the stream
     video.srcObject = stream;
+    
+    // 2. Explicitly wait for metadata to load, then play
+    video.onloadedmetadata = () => {
+        video.play()
+            .catch(err => console.error("Video play failed:", err));
+    };
 })
 .catch(err => {
     alert("Camera error: " + err.message);
+});
+
+// Handle tab/app switching - re-initialize camera if Android killed the stream
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        const tracks = video.srcObject?.getTracks();
+        if (tracks && tracks.length > 0 && tracks[0].readyState === "ended") {
+            console.log("Camera stream ended, reinitializing...");
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: {
+                        ideal: "environment"
+                    }
+                },
+                audio:false
+            })
+            .then(stream => {
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play()
+                        .catch(err => console.error("Video play failed:", err));
+                };
+            })
+            .catch(err => {
+                console.error("Camera reinitialization error:", err);
+            });
+        }
+    }
 });
 
 
