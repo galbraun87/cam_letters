@@ -212,12 +212,12 @@ function drawLetter(context){
 
 
     context.font =
-        "bold 50vh Arial";
+        "bold 75vh Arial";
 
     context.textAlign = "center";
     context.textBaseline = "middle";
 
-    context.lineWidth = 4;
+    context.lineWidth = 2;
     context.strokeStyle = "white";
 
     context.strokeText(
@@ -263,14 +263,30 @@ video.addEventListener(
 );
 
 
+// Get timestamp for filename
+function getTimestamp() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+}
+
 
 // Save image helper
 
 function downloadCanvas(canvas, filename){
 
     const link = document.createElement("a");
+    
+    const timestamp = getTimestamp();
+    const filenameWithTimestamp = filename.replace('.png', `_${timestamp}.png`);
 
-    link.download = filename;
+    link.download = filenameWithTimestamp;
 
     link.href =
         canvas.toDataURL(
