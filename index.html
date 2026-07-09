@@ -5,15 +5,13 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<style>
-/* Embed the physical Rubik Bold Hebrew characters directly inside the document */
-@font-face {
-    font-family: 'RubikCanvas';
-    src: url('https://gstatic.com') format('woff2');
-    font-weight: 700;
-    font-style: normal;
-}
+<!-- Establish high-priority font asset pipes -->
+<link rel="preconnect" href="https://googleapis.com">
+<link rel="preconnect" href="https://gstatic.com" crossorigin>
+<link href="https://googleapis.com/css2?family=Rubik:wght@700&display=swap" rel="stylesheet">
 
+<style>
+/* Define standard CSS fallback hooks for static UI elements */
 html, body {
     margin: 0;
     padding: 0;
@@ -21,7 +19,7 @@ html, body {
     background: black;
     width: 100%;
     height: 100%;
-    font-family: 'RubikCanvas', sans-serif;
+    font-family: 'Rubik', sans-serif;
 }
 
 #canvas {
@@ -57,7 +55,7 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'RubikCanvas', sans-serif;
+    font-family: 'Rubik', sans-serif;
 }
 
 button:active {
@@ -111,7 +109,7 @@ button:active {
     border-radius: 24px;
     font-size: 16px;
     font-weight: 700;
-    font-family: 'RubikCanvas', sans-serif;
+    font-family: 'Rubik', sans-serif;
     border: none;
     cursor: pointer;
 }
@@ -237,9 +235,12 @@ function drawCamera(context){
 function drawLetter(context){
     const w = window.innerWidth;
     const h = window.innerHeight;
+    
+    // CALCULATE STATIC PX METRICS: Mobile canvas engines require strict px parameters rather than raw CSS viewport syntax
+    const computedFontSize = Math.floor(h * 0.75);
 
-    // Explicitly target the verified font family block name
-    context.font = "700 75vh RubikCanvas, sans-serif";
+    // BIND STANDARDIZED FONT PATTERN: Explicit layout parameters protect against cross-platform fallbacks
+    context.font = `700 ${computedFontSize}px Rubik, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.lineWidth = 4;
@@ -260,14 +261,22 @@ function draw(){
     requestAnimationFrame(draw);
 }
 
-// Force system engine to wait until RubikCanvas vectors are parsed locally
-document.fonts.ready.then(() => {
-    if (video.readyState >= 2) {
-        draw();
-    } else {
-        video.addEventListener("loadeddata", draw);
-    }
-});
+// FORCE MEMORY SYNC: Ensure Rubik is loaded before starting the canvas drawing loop
+if (document.fonts && document.fonts.load) {
+    document.fonts.load("700 16px Rubik").then(() => {
+        if (video.readyState >= 2) {
+            draw();
+        } else {
+            video.addEventListener("loadeddata", draw);
+        }
+    }).catch(err => {
+        console.error("Font loading failure:", err);
+        // Fallback execution tracking block
+        if (video.readyState >= 2) draw(); else video.addEventListener("loadeddata", draw);
+    });
+} else {
+    video.addEventListener("loadeddata", draw);
+}
 
 function getTimestamp() {
     const now = new Date();
@@ -293,7 +302,8 @@ function capture(){
     stitchCtx.translate(w * dpr, 0);
     stitchCtx.scale(dpr, dpr);
     drawCamera(stitchCtx);
-    drawLetter(stitchCtx);
+    stitchCtx.drawLetter = drawLetter; 
+    stitchCtx.drawLetter(stitchCtx);
     stitchCtx.restore();
 
     activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
