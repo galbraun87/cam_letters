@@ -39,7 +39,7 @@ html, body {
 .controls {
     position: absolute;
     /* FIXED: Positions the button container exactly 10% away from the actual screen floor */
-    bottom: 10svh; 
+    bottom: 5svh; 
     left: 0;
     width: 100%;
     display: flex;
@@ -244,7 +244,7 @@ function drawLetter(context){
     const h = canvas.height / (window.devicePixelRatio || 1); // FIXED: Sync layout metrics against local rendering scopes
     
     // FIXED: Scales the letter cleanly to occupy 70% of available space to stay out of the button bounds
-    const computedFontSize = Math.floor(h * 0.70);
+    const computedFontSize = Math.floor(h * 0.85);
 
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
