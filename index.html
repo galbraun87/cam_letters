@@ -306,7 +306,7 @@ function capture(){
     stitchCtx.drawLetter(stitchCtx);
     stitchCtx.restore();
       
-    activeFilename = hebrew_trace_${getTimestamp()}.jpg;
+    activeFilename = 'hebrew_trace_${getTimestamp()}.jpg';
     stitchCanvas.toBlob((blob) => {
         if (!blob) return;
         activeBlob = blob;
