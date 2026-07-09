@@ -254,10 +254,8 @@ function draw(){
 }
 
 
-video.addEventListener(
-    "loadeddata",
-    draw
-);
+// Start animation loop immediately, not waiting for loadeddata
+draw();
 
 
 
