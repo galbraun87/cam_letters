@@ -222,9 +222,10 @@ function resize(){
 window.addEventListener("resize", resize);
 resize();
 
-function drawCamera(context){
-    const w = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1); // FIXED: Compute layout using active bounded height variables
+// FIXED: Added an optional override width parameter to isolate cross-side aspect calculations
+function drawCamera(context, customWidth = null){
+    const w = customWidth || window.innerWidth; // Uses specific panel bounds during stitch phase
+    const h = canvas.height / (window.devicePixelRatio || 1);
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
@@ -238,6 +239,47 @@ function drawCamera(context){
 
     context.drawImage(video, dx, dy, dw, dh);
 }
+
+// 1. Capture and generation layer
+function capture(){
+    const w = window.innerWidth;
+    const h = canvas.height / (window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+
+    const stitchCanvas = document.createElement("canvas");
+    // Double width to match side-by-side display allocations
+    stitchCanvas.width = (w * dpr) * 2;
+    stitchCanvas.height = h * dpr;
+    const stitchCtx = stitchCanvas.getContext("2d");
+
+    // Render Left Side (Camera Only)
+    stitchCtx.save();
+    stitchCtx.scale(dpr, dpr);
+    drawCamera(stitchCtx, w); // Passes strict panel widths
+    stitchCtx.restore();
+
+    // Render Right Side (Camera + Letter Outline)
+    stitchCtx.save();
+    stitchCtx.translate(w * dpr, 0); // Shift origin to the right panel partition bounds
+    stitchCtx.scale(dpr, dpr);
+    drawCamera(stitchCtx, w); // FIXED: Forces matching scaling matrices across both scopes
+    
+    // Tie rendering parameters to local tracking instances
+    stitchCtx.drawLetter = drawLetter; 
+    stitchCtx.drawLetter(stitchCtx);
+    stitchCtx.restore();
+
+    activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
+
+    stitchCanvas.toBlob((blob) => {
+        if (!blob) return;
+        activeBlob = blob;
+        const previewImg = document.getElementById("previewImage");
+        previewImg.src = URL.createObjectURL(blob);
+        document.getElementById("previewOverlay").style.display = "flex";
+    }, "image/jpeg", 0.92);
+}
+
 
 function drawLetter(context){
     const w = window.innerWidth;
@@ -286,40 +328,6 @@ if (document.fonts && document.fonts.load) {
 function getTimestamp() {
     const now = new Date();
     return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
-}
-
-function capture(){
-    const w = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const dpr = window.devicePixelRatio || 1;
-
-    const stitchCanvas = document.createElement("canvas");
-    stitchCanvas.width = (w * dpr) * 2;
-    stitchCanvas.height = h * dpr;
-    const stitchCtx = stitchCanvas.getContext("2d");
-
-    stitchCtx.save();
-    stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx);
-    stitchCtx.restore();
-
-    stitchCtx.save();
-    stitchCtx.translate(w * dpr, 0);
-    stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx);
-    stitchCtx.drawLetter = drawLetter; 
-    stitchCtx.drawLetter(stitchCtx);
-    stitchCtx.restore();
-
-    activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
-
-    stitchCanvas.toBlob((blob) => {
-        if (!blob) return;
-        activeBlob = blob;
-        const previewImg = document.getElementById("previewImage");
-        previewImg.src = URL.createObjectURL(blob);
-        document.getElementById("previewOverlay").style.display = "flex";
-    }, "image/jpeg", 0.92);
 }
 
 async function shareCapturedImage() {
