@@ -135,7 +135,7 @@ function drawLetter(context, panelWidth, renderHeight) {
     context.lineWidth = Math.max(4, Math.floor(renderHeight * 0.006)); 
     context.strokeStyle = "white";
 
-    // Draw text exactly down the middle reference of its localized panel block
+    // FIX: Draws the text exactly in the local horizontal center of the target workspace box
     context.strokeText(letter, panelWidth / 2, renderHeight * 0.50);
     context.restore(); 
 }
@@ -150,17 +150,17 @@ function draw() {
     ctx.clearRect(0, 0, totalWidth, totalHeight);
 
     if (video.readyState >= 2) {
-        // 1. Draw global video backdrop
+        // 1. Draw live background across the entire canvas space
         drawCamera(ctx, totalWidth, totalHeight);
 
-        // 2. Right Half-Screen Isolation Box
+        // 2. Right Half-Screen Isolation Block
         ctx.save();
         
-        // HORIZONTAL PIXEL CENTERING FIX: Shifts the drawing coordinate tracking matrix
-        // using absolute device pixel widths instead of unscaled window screen sizes.
+        // Translate coordinates to the middle of the screen
         const halfWidthPixels = totalWidth / 2;
         ctx.translate(halfWidthPixels, 0); 
         
+        // Pass the remaining half-width value as the target layout pane container
         drawLetter(ctx, halfWidthPixels, totalHeight);  
         ctx.restore();
     }
@@ -174,6 +174,7 @@ function capture() {
     const liveRenderWidth = canvas.width;
     const liveRenderHeight = canvas.height;
 
+    // Creates an image canvas container double the width of a single preview track panel
     const stitchCanvas = document.createElement("canvas");
     stitchCanvas.width = liveRenderWidth * 2;
     stitchCanvas.height = liveRenderHeight;
@@ -249,10 +250,13 @@ function setupUIEventListeners() {
     if (shareBtn) {
         shareBtn.addEventListener("click", async (e) => {
             e.preventDefault();
-            if (!activeBlob || !navigator.share) {
-                alert("Web Share API is not supported on this browser context. Use download option instead.");
+            if (!activeBlob) return;
+            
+            if (!navigator.share) {
+                alert("Web Share API is not supported on this browser context. Use the save download option instead.");
                 return;
             }
+            
             try {
                 const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });
                 await navigator.share({
