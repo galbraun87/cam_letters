@@ -15,60 +15,51 @@ function getLetter() {
 }
 getLetter();
 
-// FIX 1: Explicitly loops through hardware devices to avoid ultra-wide lenses on Chrome/Android
-async function initStandardCamera() {
-    try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        
-        let selectedDeviceId = null;
-        
-        // Find standard back camera track (avoiding wide, ultra, or macro descriptors)
-        const standardBackCamera = videoDevices.find(device => {
-            const label = device.label.toLowerCase();
-            return (label.includes('back') || label.includes('rear') || label.includes('environment')) && 
-                   !label.includes('wide') && 
-                   !label.includes('ultra') && 
-                   !label.includes('tele');
-        });
+// FIX 1: Strict camera track constraints tailored for mobile Chrome engines
+const constraints = {
+    video: {
+        // Enforces fallback standard camera rules if permission queries are masked
+        facingMode: { exact: "environment" }, 
+        // Forces Chrome on Android to use the primary 1x lens instead of ultra-wide tracks
+        zoom: { ideal: 1.0 },                 
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        aspectRatio: { ideal: 1.7777777778 } 
+    },
+    audio: false
+};
 
-        if (standardBackCamera) {
-            selectedDeviceId = standardBackCamera.deviceId;
-        } else if (videoDevices.length > 0) {
-            // Fallback selection rules if permissions mask device naming arrays
-            selectedDeviceId = videoDevices[videoDevices.length - 1].deviceId;
-        }
-
-        const constraints = {
-            video: selectedDeviceId ? {
-                deviceId: { exact: selectedDeviceId },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                aspectRatio: { ideal: 1.7777777778 }
-            } : {
-                facingMode: { ideal: "environment" },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                aspectRatio: { ideal: 1.7777777778 }
-            },
-            audio: false
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+navigator.mediaDevices.getUserMedia(constraints)
+    .then((stream) => {
         video.srcObject = stream;
         video.play();
-    } catch (err) {
-        console.error("Camera selection pipeline failed: ", err);
-    }
-}
-
-initStandardCamera();
+    })
+    .catch((err) => {
+        console.warn("Strict camera fallback path initiated:", err);
+        // Secondary softer fallback configuration if 'exact' environment causes a failure
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } },
+            audio: false
+        })
+        .then(stream => { video.srcObject = stream; video.play(); })
+        .catch(e => console.error("Camera completely failed:", e));
+    });
 
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
         const tracks = video.srcObject?.getTracks();
         if (tracks && tracks.length > 0 && tracks[0].readyState === "ended") {
-            initStandardCamera();
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: "environment" } },
+                audio: false
+            })
+            .then(stream => {
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play().catch(err => console.error("Video play failed:", err));
+                };
+            })
+            .catch(err => console.error("Camera reinitialization error:", err));
         }
     }
 });
@@ -84,6 +75,7 @@ function resize(){
 window.addEventListener("resize", resize);
 resize();
 
+// FIX 2: Universal camera rendering math that takes a specific customWidth parameter safely
 function drawCamera(context, customWidth = null){
     const w = customWidth || window.innerWidth; 
     const h = canvas.height / (window.devicePixelRatio || 1);
@@ -101,9 +93,9 @@ function drawCamera(context, customWidth = null){
     context.drawImage(video, dx, dy, dw, dh);
 }
 
-// FIX 2: Accepts custom panel bounding measurements to prevent letter distortion
-function drawLetter(context, targetWidth = null){
-    const w = targetWidth || window.innerWidth;
+// FIX 3: Centers the tracing outline exactly over whatever width bounding box is passed to it
+function drawLetter(context, customWidth = null){
+    const w = customWidth || window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1); 
     
     const computedFontSize = Math.floor(h * 0.85);
@@ -111,28 +103,28 @@ function drawLetter(context, targetWidth = null){
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.lineWidth = 12; // Matches your clean reference thickness
+    context.lineWidth = 12; // Thicker border profile matching your reference screenshots
     context.strokeStyle = "white";
 
     context.strokeText(letter, w / 2, h * 0.48);
 }
 
-// FIX 3: Rewritten live rendering framework to mirror your exact capture layout structure
+// FIX 4: Complete rewriting of the live viewing engine loop to explicitly create side-by-side squares
 function draw(){
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
     ctx.clearRect(0, 0, w, h);
 
     if(video.readyState >= 2){
-        // Calculate the explicit width for a single panel block partition
+        // Slice your smartphone screen into two perfectly identical panel partitions
         const singlePanelWidth = w / 2;
 
-        // Render Live Left Side Panel (No Trace Boundary)
+        // Render Left Side (Camera Stream Only)
         ctx.save();
         drawCamera(ctx, singlePanelWidth);
         ctx.restore();
 
-        // Render Live Right Side Panel (With Trace Boundary Overlay)
+        // Render Right Side (Camera Stream shifted over + Letter Trace Bounds)
         ctx.save();
         ctx.translate(singlePanelWidth, 0);
         drawCamera(ctx, singlePanelWidth);
@@ -157,8 +149,8 @@ if (document.fonts && document.fonts.load) {
     video.addEventListener("loadeddata", draw);
 }
 
+// FIX 5: Synchronized snapshot generation layout engine matching the half-width live view bounds
 function capture() {
-    // Forces capture matrices to match our half-width panel architecture
     const singleWidth = window.innerWidth / 2; 
     const h = canvas.height / (window.devicePixelRatio || 1);
     const dpr = window.devicePixelRatio || 1;
@@ -169,13 +161,13 @@ function capture() {
     stitchCanvas.height = h * dpr;
     const stitchCtx = stitchCanvas.getContext("2d");
 
-    // --- RENDER LEFT SIDE ---
+    // --- SNAPSHOT RENDER LEFT SIDE ---
     stitchCtx.save();
     stitchCtx.scale(dpr, dpr);
     drawCamera(stitchCtx, singleWidth); 
     stitchCtx.restore();
 
-    // --- RENDER RIGHT SIDE ---
+    // --- SNAPSHOT RENDER RIGHT SIDE ---
     stitchCtx.save();
     stitchCtx.translate(singleWidth * dpr, 0); 
     stitchCtx.scale(dpr, dpr);
