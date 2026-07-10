@@ -1,113 +1,173 @@
-@font-face {
-    font-family: 'AndroidSystemFont';
-    src: url('GoogleSans-Bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
+/* ==========================================================================
+   1. Root Reset and Sizing Constraints
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
+    height: 100%;
+    /* Locks viewport tightly to prevent dynamic browser navigation bars from shifting midpoints */
+    min-height: 100vh;
+    min-height: -webkit-fill-available; 
     overflow: hidden;
-    background: black;
-    width: 100vw;
-    height: 100svh; 
-    font-family: 'AndroidSystemFont', sans-serif;
+    background-color: #000;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* Prevents pull-to-refresh gestures or horizontal elastic scroll tracks */
+    overscroll-behavior: none; 
+}
+
+/* ==========================================================================
+   2. Core Media Layer Configurations
+   ========================================================================== */
+#video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    /* Kept invisible because app.js pulls frames from this element and reflects them onto the canvas */
+    opacity: 0;
+    pointer-events: none;
 }
 
 #canvas {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100vw;
-    height: 100svh; 
-}
-
-#video {
-    display: none;
-}
-
-.controls {
-    position: absolute;
-    bottom: 5svh; 
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10;
-}
-
-button {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    border: none;
-    font-size: 24px;
-    background: rgba(255,255,255,0.85);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'AndroidSystemFont', sans-serif;
-}
-
-button:active {
-    background: rgba(255,255,255,0.6);
-}
-
-#previewOverlay {
-    display: none;
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
-    height: 100svh; 
-    background: rgba(0, 0, 0, 0.95);
-    z-index: 100;
+    height: 100vh;
+    display: block;
+    z-index: 5;
+}
+
+/* ==========================================================================
+   3. Live UI Interaction Layout
+   ========================================================================== */
+.controls {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+#captureBtn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    background-color: rgba(255, 255, 255, 0.3);
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease, background-color 0.2s ease;
+}
+
+#captureBtn:active {
+    transform: translateX(-50%) scale(0.92);
+    background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* ==========================================================================
+   4. High-Res Snapshot Review Panel Overlay
+   ========================================================================== */
+#previewOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.95);
+    z-index: 20;
+    display: none; /* Controlled dynamically via app.js toggles */
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    box-sizing: border-box;
-    padding: 20px;
+    padding: calc(20px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)) 16px;
+    pointer-events: auto;
 }
 
 .preview-instruction {
-    color: #ccc;
-    font-size: 14px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
     text-align: center;
-    margin-top: 10px;
+    line-height: 1.4;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    z-index: 22;
 }
 
 #previewImage {
     max-width: 100%;
-    max-height: 65svh; 
+    max-height: 65vh;
     object-fit: contain;
-    border: 2px solid #333;
-    border-radius: 8px;
-    margin: auto 0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 21;
 }
 
 .preview-actions {
+    width: 100%;
+    max-width: 400px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    width: 100%;
-    max-width: 300px;
-    margin-bottom: 20px;
+    z-index: 22;
 }
 
+/* Base button template rules */
 .btn-action {
     width: 100%;
-    height: 48px;
-    border-radius: 24px;
+    padding: 14px 20px;
     font-size: 16px;
-    font-weight: 700;
-    font-family: 'AndroidSystemFont', sans-serif;
+    font-weight: 600;
     border: none;
+    border-radius: 10px;
     cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    text-align: center;
 }
 
-.btn-share { background: #007aff; color: white; }
-.btn-download { background: #34c759; color: white; }
-.btn-cancel { background: #ff3b30; color: white; }
+.btn-action:active {
+    transform: scale(0.98);
+}
+
+/* Context styling states mapping straight to index.html buttons */
+.btn-share {
+    background-color: #007aff;
+    color: #fff;
+}
+
+.btn-share:active {
+    background-color: #0056b3;
+}
+
+.btn-download {
+    background-color: #34c759;
+    color: #fff;
+}
+
+.btn-download:active {
+    background-color: #248a3d;
+}
+
+.btn-cancel {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.btn-cancel:active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
