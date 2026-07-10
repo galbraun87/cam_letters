@@ -15,7 +15,7 @@ function getLetter() {
 }
 getLetter();
 
-// FIX 1: Safely requests the standard 1x camera without breaking on strict device checks
+// 1. Safe Camera Track Initializer (Matches your working constraint rules)
 const constraints = {
     video: {
         facingMode: { ideal: "environment" }, 
@@ -97,7 +97,7 @@ function drawLetter(context, targetWidth = null){
     context.strokeText(letter, w / 2, h * 0.48);
 }
 
-// FIX 2: Restores the live screen to one continuous wide background frame
+// FIXED: Restores the live screen to one continuous wide background frame
 function draw(){
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
@@ -131,7 +131,7 @@ if (document.fonts && document.fonts.load) {
     video.addEventListener("loadeddata", draw);
 }
 
-// FIX 3: Generates a perfectly matched side-by-side snapshot file when clicked
+// FIXED: Generates a perfectly matched side-by-side snapshot file when clicked
 function capture() {
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
@@ -211,8 +211,15 @@ async function shareCapturedImage() {
     }
 }
 
-// FIX 4: Links HTML buttons securely to JavaScript actions to resolve module boundaries
-document.getElementById("captureBtn").onclick = capture;
-document.getElementById("shareBtn").onclick = shareCapturedImage;
-document.getElementById("downloadBtn").onclick = downloadDirectly;
-document.getElementById("cancelBtn").onclick = closePreview;
+// FIXED: Binds functions safely using modern listeners to bridge file module boundaries
+document.addEventListener("DOMContentLoaded", () => {
+    const captureBtn = document.getElementById("captureBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+
+    if (captureBtn) captureBtn.addEventListener("click", capture);
+    if (shareBtn) shareBtn.addEventListener("click", shareCapturedImage);
+    if (downloadBtn) downloadBtn.addEventListener("click", downloadDirectly);
+    if (cancelBtn) cancelBtn.addEventListener("click", closePreview);
+});
