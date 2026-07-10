@@ -15,48 +15,65 @@ function getLetter() {
 }
 getLetter();
 
-// Locate this block in your codebase to explicitly resolve standard field-of-view lenses
-const constraints = {
-    video: {
-        facingMode: { ideal: "environment" }, // Prioritize standard back lens over ultra-wide arrays
-        width: { ideal: 1280 },               // Lock resolution anchors to stop hardware shifts
-        height: { ideal: 720 },
-        aspectRatio: { ideal: 1.7777777778 } // Forces strict 16:9 standard field aspect ratios
-    },
-    audio: false
-};
+// FIX 1: Explicitly loops through hardware devices to avoid ultra-wide lenses on Chrome/Android
+async function initStandardCamera() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        let selectedDeviceId = null;
+        
+        // Find standard back camera track (avoiding wide, ultra, or macro descriptors)
+        const standardBackCamera = videoDevices.find(device => {
+            const label = device.label.toLowerCase();
+            return (label.includes('back') || label.includes('rear') || label.includes('environment')) && 
+                   !label.includes('wide') && 
+                   !label.includes('ultra') && 
+                   !label.includes('tele');
+        });
 
-// Update your camera initialization promise sequence
-navigator.mediaDevices.getUserMedia(constraints)
-    .then((stream) => {
+        if (standardBackCamera) {
+            selectedDeviceId = standardBackCamera.deviceId;
+        } else if (videoDevices.length > 0) {
+            // Fallback selection rules if permissions mask device naming arrays
+            selectedDeviceId = videoDevices[videoDevices.length - 1].deviceId;
+        }
+
+        const constraints = {
+            video: selectedDeviceId ? {
+                deviceId: { exact: selectedDeviceId },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                aspectRatio: { ideal: 1.7777777778 }
+            } : {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                aspectRatio: { ideal: 1.7777777778 }
+            },
+            audio: false
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
         video.play();
-    })
-    .catch((err) => {
-        console.error("Camera configuration failed: ", err);
-    });
+    } catch (err) {
+        console.error("Camera selection pipeline failed: ", err);
+    }
+}
+
+initStandardCamera();
 
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
         const tracks = video.srcObject?.getTracks();
         if (tracks && tracks.length > 0 && tracks[0].readyState === "ended") {
-            navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" } },
-                audio: false
-            })
-            .then(stream => {
-                video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                    video.play().catch(err => console.error("Video play failed:", err));
-                };
-            })
-            .catch(err => console.error("Camera reinitialization error:", err));
+            initStandardCamera();
         }
     }
 });
 
 function resize(){
-    // FIXED: Grab safe system viewport measurements to lock canvas dimension consistency
     const displayHeight = window.innerHeight; 
     const dpr = window.devicePixelRatio || 1;
     
@@ -67,9 +84,8 @@ function resize(){
 window.addEventListener("resize", resize);
 resize();
 
-// FIXED: Added an optional override width parameter to isolate cross-side aspect calculations
 function drawCamera(context, customWidth = null){
-    const w = customWidth || window.innerWidth; // Uses specific panel bounds during stitch phase
+    const w = customWidth || window.innerWidth; 
     const h = canvas.height / (window.devicePixelRatio || 1);
     const vw = video.videoWidth;
     const vh = video.videoHeight;
@@ -85,80 +101,43 @@ function drawCamera(context, customWidth = null){
     context.drawImage(video, dx, dy, dw, dh);
 }
 
-// 1. Capture and generation layer
-function capture() {
-    // 1. Establish strict, unshifting width dimensions for a single panel
-    const singleWidth = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const dpr = window.devicePixelRatio || 1;
-
-    const stitchCanvas = document.createElement("canvas");
+// FIX 2: Accepts custom panel bounding measurements to prevent letter distortion
+function drawLetter(context, targetWidth = null){
+    const w = targetWidth || window.innerWidth;
+    const h = canvas.height / (window.devicePixelRatio || 1); 
     
-    // 2. Total width is strictly double the single panel width, adjusted for high-DPI screens
-    stitchCanvas.width = (singleWidth * dpr) * 2;
-    stitchCanvas.height = h * dpr;
-    const stitchCtx = stitchCanvas.getContext("2d");
-
-    // --- RENDER LEFT SIDE ---
-    stitchCtx.save();
-    stitchCtx.scale(dpr, dpr);
-    // Explicitly pass singleWidth so the aspect ratio calculation is identical
-    drawCamera(stitchCtx, singleWidth); 
-    stitchCtx.restore();
-
-    // --- RENDER RIGHT SIDE ---
-    stitchCtx.save();
-    // Shift the drawing context precisely by the physical width of one panel
-    stitchCtx.translate(singleWidth * dpr, 0); 
-    stitchCtx.scale(dpr, dpr);
-    
-    // FIXED: By passing singleWidth here instead of letting it read global layouts,
-    // the field of view, crop coordinates, and aspect ratio will match the left side perfectly.
-    drawCamera(stitchCtx, singleWidth); 
-    
-    // Overlay your tracing outline on top of the right panel
-    if (typeof drawLetter === "function") {
-        drawLetter(stitchCtx);
-    }
-    stitchCtx.restore();
-
-    // 3. Export to image preview
-    activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
-
-    stitchCanvas.toBlob((blob) => {
-        if (!blob) return;
-        activeBlob = blob;
-        const previewImg = document.getElementById("previewImage");
-        previewImg.src = URL.createObjectURL(blob);
-        document.getElementById("previewOverlay").style.display = "flex";
-    }, "image/jpeg", 0.92);
-}
-
-function drawLetter(context){
-    const w = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1); // FIXED: Sync layout metrics against local rendering scopes
-    
-    // FIXED: Scales the letter cleanly to occupy 70% of available space to stay out of the button bounds
     const computedFontSize = Math.floor(h * 0.85);
 
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.lineWidth = 4;
+    context.lineWidth = 12; // Matches your clean reference thickness
     context.strokeStyle = "white";
 
-    // FIXED: Positions center precisely to sit balanced higher up, preventing collisions
     context.strokeText(letter, w / 2, h * 0.48);
 }
 
+// FIX 3: Rewritten live rendering framework to mirror your exact capture layout structure
 function draw(){
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
     ctx.clearRect(0, 0, w, h);
 
     if(video.readyState >= 2){
-        drawCamera(ctx);
-        drawLetter(ctx);
+        // Calculate the explicit width for a single panel block partition
+        const singlePanelWidth = w / 2;
+
+        // Render Live Left Side Panel (No Trace Boundary)
+        ctx.save();
+        drawCamera(ctx, singlePanelWidth);
+        ctx.restore();
+
+        // Render Live Right Side Panel (With Trace Boundary Overlay)
+        ctx.save();
+        ctx.translate(singlePanelWidth, 0);
+        drawCamera(ctx, singlePanelWidth);
+        drawLetter(ctx, singlePanelWidth);
+        ctx.restore();
     }
     requestAnimationFrame(draw);
 }
@@ -176,6 +155,62 @@ if (document.fonts && document.fonts.load) {
     });
 } else {
     video.addEventListener("loadeddata", draw);
+}
+
+function capture() {
+    // Forces capture matrices to match our half-width panel architecture
+    const singleWidth = window.innerWidth / 2; 
+    const h = canvas.height / (window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+
+    const stitchCanvas = document.createElement("canvas");
+    
+    stitchCanvas.width = window.innerWidth * dpr;
+    stitchCanvas.height = h * dpr;
+    const stitchCtx = stitchCanvas.getContext("2d");
+
+    // --- RENDER LEFT SIDE ---
+    stitchCtx.save();
+    stitchCtx.scale(dpr, dpr);
+    drawCamera(stitchCtx, singleWidth); 
+    stitchCtx.restore();
+
+    // --- RENDER RIGHT SIDE ---
+    stitchCtx.save();
+    stitchCtx.translate(singleWidth * dpr, 0); 
+    stitchCtx.scale(dpr, dpr);
+    drawCamera(stitchCtx, singleWidth); 
+    drawLetter(stitchCtx, singleWidth);
+    stitchCtx.restore();
+
+    activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
+
+    stitchCanvas.toBlob((blob) => {
+        if (!blob) return;
+        activeBlob = blob;
+        const previewImg = document.getElementById("previewImage");
+        previewImg.src = URL.createObjectURL(blob);
+        document.getElementById("previewOverlay").style.display = "flex";
+    }, "image/jpeg", 0.92);
+}
+
+function closePreview() {
+    document.getElementById("previewOverlay").style.display = "none";
+    if (activeBlob) {
+        URL.revokeObjectURL(document.getElementById("previewImage").src);
+        activeBlob = null;
+    }
+}
+
+function downloadDirectly() {
+    if (!activeBlob) return;
+    
+    const downloadLink = document.createElement("a");
+    downloadLink.download = activeFilename;
+    downloadLink.href = URL.createObjectURL(activeBlob);
+    downloadLink.click();
+    
+    setTimeout(() => URL.revokeObjectURL(downloadLink.href), 100);
 }
 
 function getTimestamp() {
@@ -199,29 +234,4 @@ async function shareCapturedImage() {
     } else {
         alert("Sharing sheet interface is blocked or unsupported in this context.");
     }
-}
-
-// 3. Android / UniversalBrowser File Download Fallback Layer
-function downloadDirectly() {
-    if (!activeBlob) return;
-    
-    const downloadLink = document.createElement("a");
-    downloadLink.download = activeFilename;
-    downloadLink.href = URL.createObjectURL(activeBlob);
-    downloadLink.click();
-    
-    // Revoke object URL after structural click execution to optimize clean device browser engine runtimes
-    setTimeout(() => URL.revokeObjectURL(downloadLink.href), 100);
-}
-
-// 4. Interface state destruction layer
-function closePreview() {
-    document.getElementById("previewOverlay").style.display = "none";
-    
-    // Clean down old memory objects
-    if (document.getElementById("previewImage").src.startsWith("blob:")) {
-        URL.revokeObjectURL(document.getElementById("previewImage").src);
-    }
-    activeBlob = null;
-    activeFilename = "";
 }
