@@ -156,14 +156,15 @@ function draw() {
         // 2. Right Half-Screen Isolation Box
         ctx.save();
         
-        // Translate coordinates to the middle line of the screen
-        ctx.translate(totalWidth / 2, 0); 
+        // Translate coordinates directly to the middle line of the screen
+        const halfWidthPixels = totalWidth / 2;
+        ctx.translate(halfWidthPixels, 0); 
         
-        // PASSING totalWidth CORRECTS THE LIVE CENTERING: 
+        // PASSING halfWidthPixels FIXES THE LIVE CENTERING: 
         // Because the canvas brush is already translated to the screen center point, 
-        // passing totalWidth means drawLetter will compute (totalWidth / 2), 
-        // perfectly shifting the letter center into the middle of the right-hand panel.
-        drawLetter(ctx, totalWidth, totalHeight);  
+        // passing halfWidthPixels means drawLetter will compute (halfWidthPixels / 2), 
+        // aligning the character dead-center in that right-hand viewport window box.
+        drawLetter(ctx, halfWidthPixels, totalHeight);  
         ctx.restore();
     }
     requestAnimationFrame(draw);
@@ -275,4 +276,4 @@ function setupUIEventListeners() {
 function getTimestamp() {
     const now = new Date();
     return now.toISOString().replace(/[:.]/g, "-");
-}
+        }
