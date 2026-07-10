@@ -99,7 +99,7 @@ function setupResizeHandler() {
 /**
  * Shared Draw Utilities
  */
-function drawCamera(context, renderWidth, renderHeight) {
+function drawCamera(context, startX, renderWidth, renderHeight) {
     const vWidth = video.videoWidth;
     const vHeight = video.videoHeight;
     if (!vWidth || !vHeight) return;
@@ -121,16 +121,11 @@ function drawCamera(context, renderWidth, renderHeight) {
         sy = 0;
     }
 
-    context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, renderWidth, renderHeight);
+    // FIX: Takes an explicit destination startX coordinate parameter 
+    // to map background positions correctly inside global canvas layouts
+    context.drawImage(video, sx, sy, sWidth, sHeight, startX, 0, renderWidth, renderHeight);
 }
 
-/**
- * Draws the letter centered inside a specific horizontal window bounding box.
- * @param {CanvasRenderingContext2D} context - The canvas rendering context.
- * @param {number} startX - The starting X coordinate (left boundary) of the panel.
- * @param {number} width - The total width of this specific layout panel.
- * @param {number} renderHeight - The total height available.
- */
 function drawLetterAtLocation(context, startX, width, renderHeight) {
     const computedFontSize = Math.floor(renderHeight * 0.85);
 
@@ -142,7 +137,8 @@ function drawLetterAtLocation(context, startX, width, renderHeight) {
     context.lineWidth = Math.max(4, Math.floor(renderHeight * 0.006)); 
     context.strokeStyle = "white";
 
-    // ABSOLUTE MATH: Calculate exact center point of the designated half-box area
+    // MATHEMATICAL REALIGNMENT FIX: Rather than relying on layout transformations,
+    // this directly places the character at the exact geometric midpoint of the panel space.
     const exactTargetX = startX + (width / 2);
 
     context.strokeText("\u200E" + letter, exactTargetX, renderHeight * 0.50);
@@ -160,7 +156,7 @@ function draw() {
 
     if (video.readyState >= 2) {
         // 1. Draw live background across the entire canvas space
-        drawCamera(ctx, totalWidth, totalHeight);
+        drawCamera(ctx, 0, totalWidth, totalHeight);
 
         // 2. Draw live letter directly onto the right-half plane using absolute coordinates
         const halfWidthPixels = totalWidth / 2;
@@ -183,16 +179,18 @@ function capture() {
     stitchCanvas.height = liveRenderHeight;
     const stitchCtx = stitchCanvas.getContext("2d");
 
-    // PANEL 1: Left side raw camera capture view
+    // PANEL 1: Left side raw camera capture view (Starts at X = 0)
     stitchCtx.save();
-    drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight); 
+    drawCamera(stitchCtx, 0, liveRenderWidth, liveRenderHeight); 
     stitchCtx.restore();
 
-    // PANEL 2: Right side layout overlay trace view
+    // PANEL 2: Right side layout overlay trace view (Starts at X = liveRenderWidth)
     stitchCtx.save();
-    drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight);        
     
-    // In stitch mode, Panel 2 starts at X = liveRenderWidth and spans liveRenderWidth wide
+    // FIX: Draws the background image at the correct starting location for the right panel
+    drawCamera(stitchCtx, liveRenderWidth, liveRenderWidth, liveRenderHeight);        
+    
+    // Draws the text template centered inside the right panel workspace boundaries
     drawLetterAtLocation(stitchCtx, liveRenderWidth, liveRenderWidth, liveRenderHeight);        
     stitchCtx.restore();
 
