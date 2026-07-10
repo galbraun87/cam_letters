@@ -2,7 +2,7 @@
 let stream = null;
 let activeBlob = null;
 let activeFilename = "";
-const letter = "א"; // Default letter, can be dynamically changed
+const letter = "ה"; // Default letter, can be dynamically changed
 
 // DOM Elements
 const video = document.getElementById("video");
@@ -50,7 +50,7 @@ async function initCamera() {
                 device.label.toLowerCase().includes('environment')
             );
 
-            targetDeviceId = mainBackCamera ? mainBackCamera.deviceId : (genericBackCamera ? genericBackCamera.deviceId : videoDevices[0].deviceId);
+            targetDeviceId = mainBackCamera ? mainBackCamera.deviceId : (genericBackCamera ? genericBackCamera.deviceId : videoDevices.deviceId);
         }
 
         const constraints = {
@@ -122,6 +122,11 @@ function drawLetter(context, panelWidth, renderHeight) {
     // Dynamic size scaling matched directly against standard portrait canvas height tracking
     const computedFontSize = Math.floor(renderHeight * 0.85);
 
+    context.save(); // Protect global canvas state context from styling overrides
+    
+    // CRITICAL FIX: Forces standard LTR layout behavior so Hebrew glyphs don't offset their bounding boxes
+    context.direction = "ltr"; 
+    
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
@@ -130,6 +135,8 @@ function drawLetter(context, panelWidth, renderHeight) {
 
     // Standard baseline text coordinates placed dead-center in the local panel workspace
     context.strokeText(letter, panelWidth / 2, renderHeight * 0.50);
+    
+    context.restore(); // Revert typography layout direction state
 }
 
 /**
