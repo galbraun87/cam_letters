@@ -31,6 +31,7 @@ function readLetterFromUrl() {
 
 /**
  * Camera Initialization
+ * Targets the back-facing main wide-angle camera (1x) specifically.
  */
 async function initCamera() {
     try {
@@ -57,7 +58,7 @@ async function initCamera() {
                 device.label.toLowerCase().includes('environment')
             );
 
-            targetDeviceId = mainBackCamera ? mainBackCamera.deviceId : (genericBackCamera ? genericBackCamera.deviceId : videoDevices[0].deviceId);
+            targetDeviceId = mainBackCamera ? mainBackCamera.deviceId : (genericBackCamera ? genericBackCamera.deviceId : videoDevices.deviceId);
         }
 
         const constraints = {
@@ -127,14 +128,14 @@ function drawLetter(context, panelWidth, renderHeight) {
     const computedFontSize = Math.floor(renderHeight * 0.85);
 
     context.save(); 
-    context.direction = "ltr"; 
+    context.direction = "ltr"; // Forces layout rendering geometric bounds center
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.lineWidth = Math.max(4, Math.floor(renderHeight * 0.006)); 
     context.strokeStyle = "white";
 
-    // Draw perfectly centered in the panel coordinate bounding window
+    // Draw text exactly down the middle reference of its localized panel block
     context.strokeText(letter, panelWidth / 2, renderHeight * 0.50);
     context.restore(); 
 }
@@ -149,14 +150,14 @@ function draw() {
     ctx.clearRect(0, 0, totalWidth, totalHeight);
 
     if (video.readyState >= 2) {
-        // 1. Draw global backdrop
+        // 1. Draw global video backdrop
         drawCamera(ctx, totalWidth, totalHeight);
 
-        // 2. Right Half-Screen Isolation Block
+        // 2. Right Half-Screen Isolation Box
         ctx.save();
         
-        // HORIZONTAL SHIFT FIX: Using absolute pixel math instead of relative view widths
-        // completely locks down horizontal drift across different mobile screen densities.
+        // HORIZONTAL PIXEL CENTERING FIX: Shifts the drawing coordinate tracking matrix
+        // using absolute device pixel widths instead of unscaled window screen sizes.
         const halfWidthPixels = totalWidth / 2;
         ctx.translate(halfWidthPixels, 0); 
         
@@ -178,12 +179,12 @@ function capture() {
     stitchCanvas.height = liveRenderHeight;
     const stitchCtx = stitchCanvas.getContext("2d");
 
-    // Left Panel
+    // PANEL 1: Left side raw camera capture view
     stitchCtx.save();
     drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight); 
     stitchCtx.restore();
 
-    // Right Panel
+    // PANEL 2: Right side layout overlay trace view
     stitchCtx.save();
     stitchCtx.translate(liveRenderWidth, 0); 
     drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight);        
@@ -196,12 +197,12 @@ function capture() {
         if (!blob) return;
         activeBlob = blob;
         
-        const previewImg = document.getElementById("previewImage") || document.querySelector("img[id*='preview']");
+        const previewImg = document.getElementById("previewImage");
         if (previewImg) {
             previewImg.src = URL.createObjectURL(blob);
         }
         
-        const overlay = document.getElementById("previewOverlay") || document.querySelector("div[id*='overlay']");
+        const overlay = document.getElementById("previewOverlay");
         if (overlay) {
             overlay.style.display = "flex";
         }
@@ -209,34 +210,60 @@ function capture() {
 }
 
 /**
- * Robust UI Event Handlers
+ * UI Event Handlers linked directly to index.html IDs
  */
 function setupUIEventListeners() {
-    // Fail-safe listeners: Try finding elements by raw ID first, falling back to substring selectors
-    const captureBtn = document.getElementById("captureBtn") || document.querySelector("[id*='capture']");
+    const captureBtn = document.getElementById("captureBtn");
     if (captureBtn) {
-        captureBtn.onclick = (e) => { e.preventDefault(); capture(); };
-    }
-
-    const closePreviewBtn = document.getElementById("closePreviewBtn") || document.querySelector("[id*='close']");
-    if (closePreviewBtn) {
-        closePreviewBtn.onclick = (e) => {
+        captureBtn.addEventListener("click", (e) => {
             e.preventDefault();
-            const overlay = document.getElementById("previewOverlay") || document.querySelector("div[id*='overlay']");
-            if (overlay) overlay.style.display = "none";
-        };
+            capture();
+        });
     }
 
-    const saveBtn = document.getElementById("saveBtn") || document.querySelector("[id*='save']");
-    if (saveBtn) {
-        saveBtn.onclick = (e) => {
+    // MATCHES: <button id="cancelBtn">Retake 🔄</button>
+    const cancelBtn = document.getElementById("cancelBtn");
+    if (cancelBtn) {
+        cancelBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const overlay = document.getElementById("previewOverlay");
+            if (overlay) overlay.style.display = "none";
+        });
+    }
+
+    // MATCHES: <button id="downloadBtn">Save to Device</button>
+    const downloadBtn = document.getElementById("downloadBtn");
+    if (downloadBtn) {
+        downloadBtn.addEventListener("click", (e) => {
             e.preventDefault();
             if (!activeBlob) return;
             const link = document.createElement("a");
             link.href = URL.createObjectURL(activeBlob);
             link.download = activeFilename;
             link.click();
-        };
+        });
+    }
+
+    // MATCHES: <button id="shareBtn">Share / Send</button>
+    const shareBtn = document.getElementById("shareBtn");
+    if (shareBtn) {
+        shareBtn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            if (!activeBlob || !navigator.share) {
+                alert("Web Share API is not supported on this browser context. Use download option instead.");
+                return;
+            }
+            try {
+                const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });
+                await navigator.share({
+                    files: [file],
+                    title: "Hebrew Trace Canvas Capture",
+                    text: "Check out my written character trace work!"
+                });
+            } catch (err) {
+                console.error("Share failed:", err);
+            }
+        });
     }
 }
 
