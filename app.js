@@ -124,23 +124,28 @@ function drawCamera(context, renderWidth, renderHeight) {
     context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, renderWidth, renderHeight);
 }
 
-function drawLetter(context, panelWidth, renderHeight) {
+/**
+ * Draws the letter centered inside a specific horizontal window bounding box.
+ * @param {CanvasRenderingContext2D} context - The canvas rendering context.
+ * @param {number} startX - The starting X coordinate (left boundary) of the panel.
+ * @param {number} width - The total width of this specific layout panel.
+ * @param {number} renderHeight - The total height available.
+ */
+function drawLetterAtLocation(context, startX, width, renderHeight) {
     const computedFontSize = Math.floor(renderHeight * 0.85);
 
     context.save(); 
-    context.direction = "ltr"; // Sets target rendering baseline bounds direction
+    context.direction = "ltr"; 
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.lineWidth = Math.max(4, Math.floor(renderHeight * 0.006)); 
     context.strokeStyle = "white";
 
-    // CRITICAL FIX: Prepending the Left-to-Right marker (\u200E) strips dynamic 
-    // RTL character offset anomalies across mobile layouts completely.
-    const baselineText = "\u200E" + letter;
+    // ABSOLUTE MATH: Calculate exact center point of the designated half-box area
+    const exactTargetX = startX + (width / 2);
 
-    // Standard baseline text coordinates placed dead-center in the local panel workspace
-    context.strokeText(baselineText, panelWidth / 2, renderHeight * 0.50);
+    context.strokeText("\u200E" + letter, exactTargetX, renderHeight * 0.50);
     context.restore(); 
 }
 
@@ -157,16 +162,11 @@ function draw() {
         // 1. Draw live background across the entire canvas space
         drawCamera(ctx, totalWidth, totalHeight);
 
-        // 2. Right Half-Screen Isolation Box
-        ctx.save();
-        
-        // Translate coordinates directly to the middle line of the screen
+        // 2. Draw live letter directly onto the right-half plane using absolute coordinates
         const halfWidthPixels = totalWidth / 2;
-        ctx.translate(halfWidthPixels, 0); 
         
-        // Draws inside the relative width boundaries of the right box
-        drawLetter(ctx, halfWidthPixels, totalHeight);  
-        ctx.restore();
+        // startX = halfWidthPixels (middle line), width = halfWidthPixels (right side)
+        drawLetterAtLocation(ctx, halfWidthPixels, halfWidthPixels, totalHeight);
     }
     requestAnimationFrame(draw);
 }
@@ -190,11 +190,10 @@ function capture() {
 
     // PANEL 2: Right side layout overlay trace view
     stitchCtx.save();
-    stitchCtx.translate(liveRenderWidth, 0); 
     drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight);        
     
-    // In stitch mode, total panel drawing bounds is exactly liveRenderWidth
-    drawLetter(stitchCtx, liveRenderWidth, liveRenderHeight);        
+    // In stitch mode, Panel 2 starts at X = liveRenderWidth and spans liveRenderWidth wide
+    drawLetterAtLocation(stitchCtx, liveRenderWidth, liveRenderWidth, liveRenderHeight);        
     stitchCtx.restore();
 
     activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
