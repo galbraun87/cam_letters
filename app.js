@@ -15,7 +15,7 @@ function getLetter() {
 }
 getLetter();
 
-// FIX 1: Enhanced hardware lens targeting to aggressively isolate the standard 1x camera
+// Camera initialization sequence using high-res constraints to prioritize the main 1x lens
 async function initTrueMainLens() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -33,7 +33,6 @@ async function initTrueMainLens() {
         if (standardLens) {
             selectedDeviceId = standardLens.deviceId;
         } else if (videoDevices.length > 0) {
-            // Fallback to absolute first track if strings are masked by device policies
             selectedDeviceId = videoDevices[0].deviceId;
         }
 
@@ -96,9 +95,9 @@ function drawCamera(context, customWidth = null){
     context.drawImage(video, dx, dy, dw, dh);
 }
 
-// FIX 2: Correct text placement arithmetic to remove double offset centering
-function drawLetter(context, targetWidth = null){
-    const w = targetWidth || window.innerWidth;
+// FIXED: Centers the tracing outline exactly at the horizontal 75% mark of the workspace width
+function drawLetter(context){
+    const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1); 
     const computedFontSize = Math.floor(h * 0.85);
 
@@ -108,25 +107,22 @@ function drawLetter(context, targetWidth = null){
     context.lineWidth = 4; 
     context.strokeStyle = "white";
 
-    // FIXED: Uses half of the targeted panel box dimension layout to guarantee true centering
-    context.strokeText(letter, w / 2, h * 0.48);
+    // 0.75 represents the exact center point of the right half-screen panel space
+    context.strokeText(letter, w * 0.75, h * 0.48);
 }
 
-// FIX 3: Clean translation mapping for live drawing view
+// FIXED: Live view engine now renders a single unbroken camera field with the letter overlayed natively
 function draw(){
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
     ctx.clearRect(0, 0, w, h);
 
     if(video.readyState >= 2){
+        // 1. Draw your continuous video background across the whole screen width
         drawCamera(ctx, w);
 
-        ctx.save();
-        // Shifts origin cleanly to the right half-screen coordinate partition
-        ctx.translate(w / 2, 0); 
-        // Pass the half-screen panel size so drawLetter centers perfectly within that box
-        drawLetter(ctx, w / 2);  
-        ctx.restore();
+        // 2. Overlay the letter cleanly on top using its absolute coordinates
+        drawLetter(ctx);  
     }
     requestAnimationFrame(draw);
 }
@@ -141,7 +137,7 @@ if (document.fonts && document.fonts.load) {
     video.addEventListener("loadeddata", draw);
 }
 
-// FIX 4: Complete coordinate synchronization for snapshots matching live view
+// Snapshot compiler that matches your clean side-by-side stitch parameters
 function capture() {
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
@@ -152,20 +148,20 @@ function capture() {
     stitchCanvas.height = h * dpr;
     const stitchCtx = stitchCanvas.getContext("2d");
 
-    // Left Panel Stitch (Full width perspective)
+    // Left Panel Stitch (Raw Image View)
     stitchCtx.save();
     stitchCtx.scale(dpr, dpr);
     drawCamera(stitchCtx, w); 
     stitchCtx.restore();
 
-    // Right Panel Stitch (Shifted perspective + Centered trace overlay)
+    // Right Panel Stitch (Image View + Trace Outline Overlay)
     stitchCtx.save();
     stitchCtx.translate(w * dpr, 0); 
     stitchCtx.scale(dpr, dpr);
     drawCamera(stitchCtx, w);        
     
-    // FIXED: Matches live view coordinate calculations by parsing full single width constraints
-    drawLetter(stitchCtx, w);        
+    // Shared coordinate structure aligns both preview modes seamlessly
+    drawLetter(stitchCtx);        
     stitchCtx.restore();
 
     activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
@@ -209,6 +205,7 @@ async function shareCapturedImage() {
     } else { alert("Sharing not supported."); }
 }
 
+// Modern script event handlers securely mapped to UI layout partitions
 document.addEventListener("DOMContentLoaded", () => {
     const captureBtn = document.getElementById("captureBtn");
     const shareBtn = document.getElementById("shareBtn");
