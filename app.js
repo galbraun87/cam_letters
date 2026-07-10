@@ -135,7 +135,7 @@ function drawLetter(context, panelWidth, renderHeight) {
     context.lineWidth = Math.max(4, Math.floor(renderHeight * 0.006)); 
     context.strokeStyle = "white";
 
-    // FIX: Draws the text exactly in the local horizontal center of the target workspace box
+    // Standard baseline text coordinates placed dead-center in the local panel workspace
     context.strokeText(letter, panelWidth / 2, renderHeight * 0.50);
     context.restore(); 
 }
@@ -153,15 +153,17 @@ function draw() {
         // 1. Draw live background across the entire canvas space
         drawCamera(ctx, totalWidth, totalHeight);
 
-        // 2. Right Half-Screen Isolation Block
+        // 2. Right Half-Screen Isolation Box
         ctx.save();
         
-        // Translate coordinates to the middle of the screen
-        const halfWidthPixels = totalWidth / 2;
-        ctx.translate(halfWidthPixels, 0); 
+        // Translate coordinates to the middle line of the screen
+        ctx.translate(totalWidth / 2, 0); 
         
-        // Pass the remaining half-width value as the target layout pane container
-        drawLetter(ctx, halfWidthPixels, totalHeight);  
+        // PASSING totalWidth CORRECTS THE LIVE CENTERING: 
+        // Because the canvas brush is already translated to the screen center point, 
+        // passing totalWidth means drawLetter will compute (totalWidth / 2), 
+        // perfectly shifting the letter center into the middle of the right-hand panel.
+        drawLetter(ctx, totalWidth, totalHeight);  
         ctx.restore();
     }
     requestAnimationFrame(draw);
@@ -189,6 +191,8 @@ function capture() {
     stitchCtx.save();
     stitchCtx.translate(liveRenderWidth, 0); 
     drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight);        
+    
+    // In stitch mode, total panel drawing bounds is exactly liveRenderWidth
     drawLetter(stitchCtx, liveRenderWidth, liveRenderHeight);        
     stitchCtx.restore();
 
@@ -222,7 +226,6 @@ function setupUIEventListeners() {
         });
     }
 
-    // MATCHES: <button id="cancelBtn">Retake 🔄</button>
     const cancelBtn = document.getElementById("cancelBtn");
     if (cancelBtn) {
         cancelBtn.addEventListener("click", (e) => {
@@ -232,7 +235,6 @@ function setupUIEventListeners() {
         });
     }
 
-    // MATCHES: <button id="downloadBtn">Save to Device</button>
     const downloadBtn = document.getElementById("downloadBtn");
     if (downloadBtn) {
         downloadBtn.addEventListener("click", (e) => {
@@ -245,7 +247,6 @@ function setupUIEventListeners() {
         });
     }
 
-    // MATCHES: <button id="shareBtn">Share / Send</button>
     const shareBtn = document.getElementById("shareBtn");
     if (shareBtn) {
         shareBtn.addEventListener("click", async (e) => {
