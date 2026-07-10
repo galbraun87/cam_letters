@@ -2,7 +2,7 @@
 let stream = null;
 let activeBlob = null;
 let activeFilename = "";
-const letter = "ה"; // Default letter, can be dynamically changed
+let letter = "א"; // Default fallback letter
 
 // DOM Elements
 const video = document.getElementById("video");
@@ -11,11 +11,24 @@ const ctx = canvas.getContext("2d");
 
 // Initialize application on load
 window.addEventListener("DOMContentLoaded", () => {
+    readLetterFromUrl();
     initCamera();
     setupResizeHandler();
     setupUIEventListeners();
     requestAnimationFrame(draw);
 });
+
+/**
+ * Parses the URL parameters to dynamically extract the target letter.
+ * Example syntax: ://yoursite.com
+ */
+function readLetterFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlLetter = urlParams.get('letter');
+    if (urlLetter) {
+        letter = decodeURIComponent(urlLetter);
+    }
+}
 
 /**
  * Camera Initialization
@@ -153,7 +166,7 @@ function draw() {
         // 1. Draw live feed backdrop stretching across full target canvas space
         drawCamera(ctx, totalWidth, totalHeight);
 
-        // 2. Translate focus and isolation matrix to the right half-screen coordinate partition
+        // 2. Translate focus to the right half-screen coordinate partition
         ctx.save();
         ctx.translate(totalWidth / 2, 0); 
         
