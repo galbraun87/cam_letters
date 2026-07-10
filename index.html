@@ -241,34 +241,43 @@ function drawCamera(context, customWidth = null){
 }
 
 // 1. Capture and generation layer
-function capture(){
-    const w = window.innerWidth;
+function capture() {
+    // 1. Establish strict, unshifting width dimensions for a single panel
+    const singleWidth = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
     const dpr = window.devicePixelRatio || 1;
 
     const stitchCanvas = document.createElement("canvas");
-    // Double width to match side-by-side display allocations
-    stitchCanvas.width = (w * dpr) * 2;
+    
+    // 2. Total width is strictly double the single panel width, adjusted for high-DPI screens
+    stitchCanvas.width = (singleWidth * dpr) * 2;
     stitchCanvas.height = h * dpr;
     const stitchCtx = stitchCanvas.getContext("2d");
 
-    // Render Left Side (Camera Only)
+    // --- RENDER LEFT SIDE ---
     stitchCtx.save();
     stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx, w); // Passes strict panel widths
+    // Explicitly pass singleWidth so the aspect ratio calculation is identical
+    drawCamera(stitchCtx, singleWidth); 
     stitchCtx.restore();
 
-    // Render Right Side (Camera + Letter Outline)
+    // --- RENDER RIGHT SIDE ---
     stitchCtx.save();
-    stitchCtx.translate(w * dpr, 0); // Shift origin to the right panel partition bounds
+    // Shift the drawing context precisely by the physical width of one panel
+    stitchCtx.translate(singleWidth * dpr, 0); 
     stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx, w); // FIXED: Forces matching scaling matrices across both scopes
     
-    // Tie rendering parameters to local tracking instances
-    stitchCtx.drawLetter = drawLetter; 
-    stitchCtx.drawLetter(stitchCtx);
+    // FIXED: By passing singleWidth here instead of letting it read global layouts,
+    // the field of view, crop coordinates, and aspect ratio will match the left side perfectly.
+    drawCamera(stitchCtx, singleWidth); 
+    
+    // Overlay your tracing outline on top of the right panel
+    if (typeof drawLetter === "function") {
+        drawLetter(stitchCtx);
+    }
     stitchCtx.restore();
 
+    // 3. Export to image preview
     activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
 
     stitchCanvas.toBlob((blob) => {
@@ -279,7 +288,6 @@ function capture(){
         document.getElementById("previewOverlay").style.display = "flex";
     }, "image/jpeg", 0.92);
 }
-
 
 function drawLetter(context){
     const w = window.innerWidth;
