@@ -128,15 +128,19 @@ function drawLetter(context, panelWidth, renderHeight) {
     const computedFontSize = Math.floor(renderHeight * 0.85);
 
     context.save(); 
-    context.direction = "ltr"; // Forces layout rendering geometric bounds center
+    context.direction = "ltr"; // Sets target rendering baseline bounds direction
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.lineWidth = Math.max(4, Math.floor(renderHeight * 0.006)); 
     context.strokeStyle = "white";
 
+    // CRITICAL FIX: Prepending the Left-to-Right marker (\u200E) strips dynamic 
+    // RTL character offset anomalies across mobile layouts completely.
+    const baselineText = "\u200E" + letter;
+
     // Standard baseline text coordinates placed dead-center in the local panel workspace
-    context.strokeText(letter, panelWidth / 2, renderHeight * 0.50);
+    context.strokeText(baselineText, panelWidth / 2, renderHeight * 0.50);
     context.restore(); 
 }
 
@@ -160,10 +164,7 @@ function draw() {
         const halfWidthPixels = totalWidth / 2;
         ctx.translate(halfWidthPixels, 0); 
         
-        // PASSING halfWidthPixels FIXES THE LIVE CENTERING: 
-        // Because the canvas brush is already translated to the screen center point, 
-        // passing halfWidthPixels means drawLetter will compute (halfWidthPixels / 2), 
-        // aligning the character dead-center in that right-hand viewport window box.
+        // Draws inside the relative width boundaries of the right box
         drawLetter(ctx, halfWidthPixels, totalHeight);  
         ctx.restore();
     }
@@ -177,7 +178,6 @@ function capture() {
     const liveRenderWidth = canvas.width;
     const liveRenderHeight = canvas.height;
 
-    // Creates an image canvas container double the width of a single preview track panel
     const stitchCanvas = document.createElement("canvas");
     stitchCanvas.width = liveRenderWidth * 2;
     stitchCanvas.height = liveRenderHeight;
@@ -276,4 +276,4 @@ function setupUIEventListeners() {
 function getTimestamp() {
     const now = new Date();
     return now.toISOString().replace(/[:.]/g, "-");
-        }
+}
