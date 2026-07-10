@@ -15,13 +15,10 @@ function getLetter() {
 }
 getLetter();
 
-// FIX 1: Strict camera track constraints tailored for mobile Chrome engines
+// FIX 1: Safely requests the standard 1x camera without breaking on strict device checks
 const constraints = {
     video: {
-        // Enforces fallback standard camera rules if permission queries are masked
-        facingMode: { exact: "environment" }, 
-        // Forces Chrome on Android to use the primary 1x lens instead of ultra-wide tracks
-        zoom: { ideal: 1.0 },                 
+        facingMode: { ideal: "environment" }, 
         width: { ideal: 1280 },
         height: { ideal: 720 },
         aspectRatio: { ideal: 1.7777777778 } 
@@ -35,14 +32,7 @@ navigator.mediaDevices.getUserMedia(constraints)
         video.play();
     })
     .catch((err) => {
-        console.warn("Strict camera fallback path initiated:", err);
-        // Secondary softer fallback configuration if 'exact' environment causes a failure
-        navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: "environment" } },
-            audio: false
-        })
-        .then(stream => { video.srcObject = stream; video.play(); })
-        .catch(e => console.error("Camera completely failed:", e));
+        console.error("Camera connection failed:", err);
     });
 
 document.addEventListener("visibilitychange", () => {
@@ -75,7 +65,6 @@ function resize(){
 window.addEventListener("resize", resize);
 resize();
 
-// FIX 2: Universal camera rendering math that takes a specific customWidth parameter safely
 function drawCamera(context, customWidth = null){
     const w = customWidth || window.innerWidth; 
     const h = canvas.height / (window.devicePixelRatio || 1);
@@ -93,9 +82,8 @@ function drawCamera(context, customWidth = null){
     context.drawImage(video, dx, dy, dw, dh);
 }
 
-// FIX 3: Centers the tracing outline exactly over whatever width bounding box is passed to it
-function drawLetter(context, customWidth = null){
-    const w = customWidth || window.innerWidth;
+function drawLetter(context, targetWidth = null){
+    const w = targetWidth || window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1); 
     
     const computedFontSize = Math.floor(h * 0.85);
@@ -103,32 +91,26 @@ function drawLetter(context, customWidth = null){
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.lineWidth = 12; // Thicker border profile matching your reference screenshots
+    context.lineWidth = 12; 
     context.strokeStyle = "white";
 
     context.strokeText(letter, w / 2, h * 0.48);
 }
 
-// FIX 4: Complete rewriting of the live viewing engine loop to explicitly create side-by-side squares
+// FIX 2: Restores the live screen to one continuous wide background frame
 function draw(){
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
     ctx.clearRect(0, 0, w, h);
 
     if(video.readyState >= 2){
-        // Slice your smartphone screen into two perfectly identical panel partitions
-        const singlePanelWidth = w / 2;
+        // Draw one unbroken background across the whole screen width
+        drawCamera(ctx, w);
 
-        // Render Left Side (Camera Stream Only)
+        // Shift ONLY the letter vector drawing origin to the right half-screen box
         ctx.save();
-        drawCamera(ctx, singlePanelWidth);
-        ctx.restore();
-
-        // Render Right Side (Camera Stream shifted over + Letter Trace Bounds)
-        ctx.save();
-        ctx.translate(singlePanelWidth, 0);
-        drawCamera(ctx, singlePanelWidth);
-        drawLetter(ctx, singlePanelWidth);
+        ctx.translate(w / 2, 0); 
+        drawLetter(ctx, w / 2);  
         ctx.restore();
     }
     requestAnimationFrame(draw);
@@ -149,30 +131,31 @@ if (document.fonts && document.fonts.load) {
     video.addEventListener("loadeddata", draw);
 }
 
-// FIX 5: Synchronized snapshot generation layout engine matching the half-width live view bounds
+// FIX 3: Generates a perfectly matched side-by-side snapshot file when clicked
 function capture() {
-    const singleWidth = window.innerWidth / 2; 
+    const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
     const dpr = window.devicePixelRatio || 1;
 
     const stitchCanvas = document.createElement("canvas");
     
-    stitchCanvas.width = window.innerWidth * dpr;
+    // Canvas is double-wide to fit the side-by-side layout panels perfectly
+    stitchCanvas.width = (w * dpr) * 2;
     stitchCanvas.height = h * dpr;
     const stitchCtx = stitchCanvas.getContext("2d");
 
-    // --- SNAPSHOT RENDER LEFT SIDE ---
+    // --- LEFT STITCH PANEL (Raw Image View Only) ---
     stitchCtx.save();
     stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx, singleWidth); 
+    drawCamera(stitchCtx, w); 
     stitchCtx.restore();
 
-    // --- SNAPSHOT RENDER RIGHT SIDE ---
+    // --- RIGHT STITCH PANEL (Image View + Outline) ---
     stitchCtx.save();
-    stitchCtx.translate(singleWidth * dpr, 0); 
+    stitchCtx.translate(w * dpr, 0); 
     stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx, singleWidth); 
-    drawLetter(stitchCtx, singleWidth);
+    drawCamera(stitchCtx, w);        
+    drawLetter(stitchCtx, w);        
     stitchCtx.restore();
 
     activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
@@ -227,3 +210,9 @@ async function shareCapturedImage() {
         alert("Sharing sheet interface is blocked or unsupported in this context.");
     }
 }
+
+// FIX 4: Links HTML buttons securely to JavaScript actions to resolve module boundaries
+document.getElementById("captureBtn").onclick = capture;
+document.getElementById("shareBtn").onclick = shareCapturedImage;
+document.getElementById("downloadBtn").onclick = downloadDirectly;
+document.getElementById("cancelBtn").onclick = closePreview;
