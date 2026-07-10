@@ -1,268 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
-<title>Hebrew Trace Canvas</title>
-<!-- Imports your external style code cleanly -->
-<link rel="stylesheet" href="style.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Hebrew Trace Canvas</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<video id="video" autoplay playsinline muted></video>
-<canvas id="canvas"></canvas>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
 
-<div class="controls">
-    <button onclick="capture()">📸</button>
-</div>
-
-<div id="previewOverlay">
-    <div class="preview-instruction">
-        Review Capture<br>
-        <span style="font-size: 11px; color: #888;">(iPhone users: Hold down on the image to save directly to Photos)</span>
+    <div class="controls">
+        <button id="captureBtn">📸</button>
     </div>
-    
-    <img id="previewImage" alt="Captured layout stitch preview asset" />
-    
-    <div class="preview-actions">
-        <button class="btn-action btn-share" onclick="shareCapturedImage()">Share / Send</button>
-        <button class="btn-action btn-download" onclick="downloadDirectly()">Save to Device</button>
-        <button class="btn-action btn-cancel" onclick="closePreview()">Retake 🔄</button>
+
+    <div id="previewOverlay">
+        <div class="preview-instruction">
+            Review Capture<br>
+            <span style="font-size: 11px; color: #888;">(iPhone users: Hold down on the image to save directly to Photos)</span>
+        </div>
+        
+        <img id="previewImage" alt="Captured layout stitch preview asset" />
+        
+        <div class="preview-actions">
+            <button class="btn-action btn-share" id="shareBtn">Share / Send</button>
+            <button class="btn-action btn-download" id="downloadBtn">Save to Device</button>
+            <button class="btn-action btn-cancel" id="cancelBtn">Retake 🔄</button>
+        </div>
     </div>
-</div>
 
-<script>
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-
-let activeBlob = null;
-let activeFilename = "";
-let letter = "א";
-
-function getLetter() {
-    const params = new URLSearchParams(window.location.search);
-    const urlLetter = params.get("letter");
-    if (urlLetter) {
-        letter = urlLetter;
-    }
-}
-getLetter();
-
-// Locate this block in your codebase to explicitly resolve standard field-of-view lenses
-const constraints = {
-    video: {
-        facingMode: { ideal: "environment" }, // Prioritize standard back lens over ultra-wide arrays
-        width: { ideal: 1280 },               // Lock resolution anchors to stop hardware shifts
-        height: { ideal: 720 },
-        aspectRatio: { ideal: 1.7777777778 } // Forces strict 16:9 standard field aspect ratios
-    },
-    audio: false
-};
-
-// Update your camera initialization promise sequence
-navigator.mediaDevices.getUserMedia(constraints)
-    .then((stream) => {
-        video.srcObject = stream;
-        video.play();
-    })
-    .catch((err) => {
-        console.error("Camera configuration failed: ", err);
-    });
-
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-        const tracks = video.srcObject?.getTracks();
-        if (tracks && tracks.length > 0 && tracks[0].readyState === "ended") {
-            navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" } },
-                audio: false
-            })
-            .then(stream => {
-                video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                    video.play().catch(err => console.error("Video play failed:", err));
-                };
-            })
-            .catch(err => console.error("Camera reinitialization error:", err));
-        }
-    }
-});
-
-function resize(){
-    // FIXED: Grab safe system viewport measurements to lock canvas dimension consistency
-    const displayHeight = window.innerHeight; 
-    const dpr = window.devicePixelRatio || 1;
-    
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = displayHeight * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-window.addEventListener("resize", resize);
-resize();
-
-// FIXED: Added an optional override width parameter to isolate cross-side aspect calculations
-function drawCamera(context, customWidth = null){
-    const w = customWidth || window.innerWidth; // Uses specific panel bounds during stitch phase
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-
-    if (!vw || !vh) return;
-
-    const scale = Math.max(w / vw, h / vh);
-    const dw = vw * scale;
-    const dh = vh * scale;
-    const dx = (w - dw) / 2;
-    const dy = (h - dh) / 2;
-
-    context.drawImage(video, dx, dy, dw, dh);
-}
-
-// 1. Capture and generation layer
-function capture() {
-    // 1. Establish strict, unshifting width dimensions for a single panel
-    const singleWidth = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const dpr = window.devicePixelRatio || 1;
-
-    const stitchCanvas = document.createElement("canvas");
-    
-    // 2. Total width is strictly double the single panel width, adjusted for high-DPI screens
-    stitchCanvas.width = (singleWidth * dpr) * 2;
-    stitchCanvas.height = h * dpr;
-    const stitchCtx = stitchCanvas.getContext("2d");
-
-    // --- RENDER LEFT SIDE ---
-    stitchCtx.save();
-    stitchCtx.scale(dpr, dpr);
-    // Explicitly pass singleWidth so the aspect ratio calculation is identical
-    drawCamera(stitchCtx, singleWidth); 
-    stitchCtx.restore();
-
-    // --- RENDER RIGHT SIDE ---
-    stitchCtx.save();
-    // Shift the drawing context precisely by the physical width of one panel
-    stitchCtx.translate(singleWidth * dpr, 0); 
-    stitchCtx.scale(dpr, dpr);
-    
-    // FIXED: By passing singleWidth here instead of letting it read global layouts,
-    // the field of view, crop coordinates, and aspect ratio will match the left side perfectly.
-    drawCamera(stitchCtx, singleWidth); 
-    
-    // Overlay your tracing outline on top of the right panel
-    if (typeof drawLetter === "function") {
-        drawLetter(stitchCtx);
-    }
-    stitchCtx.restore();
-
-    // 3. Export to image preview
-    activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
-
-    stitchCanvas.toBlob((blob) => {
-        if (!blob) return;
-        activeBlob = blob;
-        const previewImg = document.getElementById("previewImage");
-        previewImg.src = URL.createObjectURL(blob);
-        document.getElementById("previewOverlay").style.display = "flex";
-    }, "image/jpeg", 0.92);
-}
-
-function drawLetter(context){
-    const w = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1); // FIXED: Sync layout metrics against local rendering scopes
-    
-    // FIXED: Scales the letter cleanly to occupy 70% of available space to stay out of the button bounds
-    const computedFontSize = Math.floor(h * 0.85);
-
-    context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.lineWidth = 4;
-    context.strokeStyle = "white";
-
-    // FIXED: Positions center precisely to sit balanced higher up, preventing collisions
-    context.strokeText(letter, w / 2, h * 0.48);
-}
-
-function draw(){
-    const w = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    ctx.clearRect(0, 0, w, h);
-
-    if(video.readyState >= 2){
-        drawCamera(ctx);
-        drawLetter(ctx);
-    }
-    requestAnimationFrame(draw);
-}
-
-if (document.fonts && document.fonts.load) {
-    document.fonts.load("700 16px AndroidSystemFont").then(() => {
-        if (video.readyState >= 2) {
-            draw();
-        } else {
-            video.addEventListener("loadeddata", draw);
-        }
-    }).catch(err => {
-        console.error("Font trace loop mismatch:", err);
-        if (video.readyState >= 2) draw(); else video.addEventListener("loadeddata", draw);
-    });
-} else {
-    video.addEventListener("loadeddata", draw);
-}
-
-function getTimestamp() {
-    const now = new Date();
-    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
-}
-
-async function shareCapturedImage() {
-    if (!activeBlob) return;
-    const file = new File([activeBlob], activeFilename, { type: "image/jpeg" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-            await navigator.share({
-                files: [file],
-                title: `Hebrew Trace: ${letter}`,
-                text: 'Side-by-side composition snapshot trace.'
-            });
-        } catch (err) {
-            console.log("Share canceled:", err);
-        }
-    } else {
-        alert("Sharing sheet interface is blocked or unsupported in this context.");
-    }
-}
-
-// 3. Android / UniversalBrowser File Download Fallback Layer
-function downloadDirectly() {
-    if (!activeBlob) return;
-    
-    const downloadLink = document.createElement("a");
-    downloadLink.download = activeFilename;
-    downloadLink.href = URL.createObjectURL(activeBlob);
-    downloadLink.click();
-    
-    // Revoke object URL after structural click execution to optimize clean device browser engine runtimes
-    setTimeout(() => URL.revokeObjectURL(downloadLink.href), 100);
-}
-
-// 4. Interface state destruction layer
-function closePreview() {
-    document.getElementById("previewOverlay").style.display = "none";
-    
-    // Clean down old memory objects
-    if (document.getElementById("previewImage").src.startsWith("blob:")) {
-        URL.revokeObjectURL(document.getElementById("previewImage").src);
-    }
-    activeBlob = null;
-    activeFilename = "";
-}
-</script>
-
+    <!-- This line pulls all the JavaScript out of this file -->
+    <script src="app.js"></script>
 </body>
 </html>
