@@ -80,8 +80,10 @@ async function initCamera() {
 function setupResizeHandler() {
     function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
+        // Set actual canvas internal rendering resolution
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
+        // Match CSS display parameters
         canvas.style.width = `${window.innerWidth}px`;
         canvas.style.height = `${window.innerHeight}px`;
     }
@@ -91,16 +93,13 @@ function setupResizeHandler() {
 }
 
 /**
- * Shared Draw Utilities
+ * Shared Draw Utilities - Operating entirely on pure, absolute pixel positions
  */
-function drawCamera(context, w) {
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    
-    // Calculate aspect ratios to create a 'cover' effect without stretching the feed
+function drawCamera(context, renderWidth, renderHeight) {
     const vWidth = video.videoWidth;
     const vHeight = video.videoHeight;
     const videoRatio = vWidth / vHeight;
-    const canvasRatio = w / h;
+    const canvasRatio = renderWidth / renderHeight;
 
     let sx, sy, sWidth, sHeight;
 
@@ -116,94 +115,85 @@ function drawCamera(context, w) {
         sy = 0;
     }
 
-    context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, w, h);
+    context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, renderWidth, renderHeight);
 }
 
-function drawLetter(context, targetWidth = null) {
-    // Falls back to full window width if no specific panel box width is provided
-    const w = targetWidth || window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1); 
-    const computedFontSize = Math.floor(h * 0.85);
+function drawLetter(context, panelWidth, renderHeight) {
+    // Dynamic size scaling matched directly against standard portrait canvas height tracking
+    const computedFontSize = Math.floor(renderHeight * 0.85);
 
     context.font = `700 ${computedFontSize}px AndroidSystemFont, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.lineWidth = 4; 
+    context.lineWidth = Math.max(4, Math.floor(renderHeight * 0.006)); // Scales outline stroke dynamically with resolution
     context.strokeStyle = "white";
 
-    // Draws the text exactly in the center of its designated width box
-    context.strokeText(letter, w / 2, h * 0.48);
+    // Standard baseline text coordinates placed dead-center in the local panel workspace
+    context.strokeText(letter, panelWidth / 2, renderHeight * 0.50);
 }
 
 /**
  * Continuous Live Feed Animation Loop
  */
 function draw() {
-    const w = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const dpr = window.devicePixelRatio || 1;
+    // Rely exclusively on internal render width/height coordinates 
+    const totalWidth = canvas.width;
+    const totalHeight = canvas.height;
 
-    ctx.clearRect(0, 0, w, h);
+    ctx.clearRect(0, 0, totalWidth, totalHeight);
 
     if (video.readyState >= 2) {
+        // 1. Draw live feed backdrop stretching across full target canvas space
+        drawCamera(ctx, totalWidth, totalHeight);
+
+        // 2. Translate focus and isolation matrix to the right half-screen coordinate partition
         ctx.save();
-        ctx.scale(dpr, dpr);
-
-        // 1. Draw continuous video background across the whole window width
-        drawCamera(ctx, w);
-
-        // 2. Shift context to the right half-screen coordinate partition
-        ctx.save();
-        ctx.translate(w / 2, 0); 
-        // Pass the half-screen size so the letter centers within that specific box
-        drawLetter(ctx, w / 2);  
-        ctx.restore();
-
+        ctx.translate(totalWidth / 2, 0); 
+        
+        // Pass the half-screen box dimensions explicitly
+        drawLetter(ctx, totalWidth / 2, totalHeight);  
         ctx.restore();
     }
     requestAnimationFrame(draw);
 }
 
 /**
- * Snapshot Capture and Image Stitching Logic
+ * Snapshot Capture and Side-by-Side Image Stitching Logic
  */
 function capture() {
-    const w = window.innerWidth;
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const dpr = window.devicePixelRatio || 1;
+    const liveRenderWidth = canvas.width;
+    const liveRenderHeight = canvas.height;
 
-    // Create a temporary canvas double the standard screen width for side-by-side output
+    // Create a temporary layout canvas doubling the internal resolution width
     const stitchCanvas = document.createElement("canvas");
-    stitchCanvas.width = (w * dpr) * 2;
-    stitchCanvas.height = h * dpr;
+    stitchCanvas.width = liveRenderWidth * 2;
+    stitchCanvas.height = liveRenderHeight;
     const stitchCtx = stitchCanvas.getContext("2d");
 
     // PANEL 1: Left Side Stitch (Raw Image View)
     stitchCtx.save();
-    stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx, w); 
+    drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight); 
     stitchCtx.restore();
 
     // PANEL 2: Right Side Stitch (Image View + Trace Outline Overlay)
     stitchCtx.save();
-    stitchCtx.translate(w * dpr, 0); // Shift by one full high-res screen width
-    stitchCtx.scale(dpr, dpr);
-    drawCamera(stitchCtx, w);        
+    stitchCtx.translate(liveRenderWidth, 0); // Translate exactly one full frame block over
+    drawCamera(stitchCtx, liveRenderWidth, liveRenderHeight);        
     
-    // Pass 'w' so the absolute text position mirrors the live feed panel dimensions
-    drawLetter(stitchCtx, w);        
+    // Pass identical frame block measurements to match live sizing logic perfectly
+    drawLetter(stitchCtx, liveRenderWidth, liveRenderHeight);        
     stitchCtx.restore();
 
     activeFilename = `hebrew_trace_${getTimestamp()}.jpg`;
 
-    // Process output blob and display UI preview container
+    // Process high-resolution blob data and reveal view overlay container
     stitchCanvas.toBlob((blob) => {
         if (!blob) return;
         activeBlob = blob;
         const previewImg = document.getElementById("previewImage");
         previewImg.src = URL.createObjectURL(blob);
         document.getElementById("previewOverlay").style.display = "flex";
-    }, "image/jpeg", 0.92);
+    }, "image/jpeg", 0.95);
 }
 
 /**
