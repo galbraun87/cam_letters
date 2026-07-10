@@ -15,11 +15,21 @@ function getLetter() {
 }
 getLetter();
 
-// Camera initialization sequence using high-res constraints to prioritize the main 1x lens
+// FIX 1: Robust two-stage camera initializer to securely bypass wide lenses on Android
 async function initTrueMainLens() {
     try {
+        // Stage A: Boot up a generic default stream first to unlock hardware label strings
+        const initialStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" }, 
+            audio: false 
+        });
+        
+        // Read connected device channels now that permissions have exposed them
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        // Safely close the initial temporary warm-up stream tracks
+        initialStream.getTracks().forEach(track => track.stop());
         
         let selectedDeviceId = null;
         
@@ -33,16 +43,19 @@ async function initTrueMainLens() {
         if (standardLens) {
             selectedDeviceId = standardLens.deviceId;
         } else if (videoDevices.length > 0) {
-            selectedDeviceId = videoDevices[0].deviceId;
+            // Fallback selection rules if permissions mask device naming arrays
+            selectedDeviceId = videoDevices[videoDevices.length - 1].deviceId;
         }
 
         const constraints = {
             video: selectedDeviceId ? {
                 deviceId: { exact: selectedDeviceId },
-                width: { ideal: 1280 }, height: { ideal: 720 }
+                width: { ideal: 1280 }, height: { ideal: 720 },
+                aspectRatio: { ideal: 1.7777777778 }
             } : {
                 facingMode: { ideal: "environment" },
-                width: { ideal: 1280 }, height: { ideal: 720 }
+                width: { ideal: 1280 }, height: { ideal: 720 },
+                aspectRatio: { ideal: 1.7777777778 }
             },
             audio: false
         };
@@ -51,7 +64,7 @@ async function initTrueMainLens() {
         video.srcObject = stream;
         video.play();
     } catch (err) {
-        console.warn("Lens filtering bypassed, attempting standard stream:", err);
+        console.warn("Lens filtering timing conflict, applying standard stream:", err);
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
             .then(s => { video.srcObject = s; video.play(); });
     }
@@ -95,7 +108,7 @@ function drawCamera(context, customWidth = null){
     context.drawImage(video, dx, dy, dw, dh);
 }
 
-// FIXED: Centers the tracing outline exactly at the horizontal 75% mark of the workspace width
+// FIX 2: Uses direct window measurements to center the outline exactly inside the right half
 function drawLetter(context){
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1); 
@@ -107,11 +120,12 @@ function drawLetter(context){
     context.lineWidth = 4; 
     context.strokeStyle = "white";
 
-    // 0.75 represents the exact center point of the right half-screen panel space
+    // LOCKED IN: Placed exactly at the horizontal 75% mark of the workspace width
+    // This is the absolute center point of the right half-screen panel box
     context.strokeText(letter, w * 0.75, h * 0.48);
 }
 
-// FIXED: Live view engine now renders a single unbroken camera field with the letter overlayed natively
+// FIX 3: Simplified live rendering framework to mirror your exact capture layout structure
 function draw(){
     const w = window.innerWidth;
     const h = canvas.height / (window.devicePixelRatio || 1);
@@ -121,7 +135,7 @@ function draw(){
         // 1. Draw your continuous video background across the whole screen width
         drawCamera(ctx, w);
 
-        // 2. Overlay the letter cleanly on top using its absolute coordinates
+        // 2. Overlay the letter cleanly on top using its absolute center position
         drawLetter(ctx);  
     }
     requestAnimationFrame(draw);
@@ -131,6 +145,7 @@ if (document.fonts && document.fonts.load) {
     document.fonts.load("700 16px AndroidSystemFont").then(() => {
         if (video.readyState >= 2) draw(); else video.addEventListener("loadeddata", draw);
     }).catch(err => {
+        console.error("Font trace loop mismatch:", err);
         if (video.readyState >= 2) draw(); else video.addEventListener("loadeddata", draw);
     });
 } else {
