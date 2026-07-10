@@ -177,74 +177,82 @@ function getLetter() {
 }
 getLetter();
 
-// Global variable to keep track of the active stream
-let stream = null;
+// Global pointer tracking active constraints
+let activeStream = null;
 
-// Extracted configuration logic to cleanly handle 1x camera filtering
-async function startMainCamera() {
+async function start1xCamera() {
     try {
-        // Stop any old streams running in the background first
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
+        if (activeStream) {
+            activeStream.getTracks().forEach(track => track.stop());
         }
 
-        // 1. Scan all media devices attached to the phone
+        // 1. Query raw hardware layout devices attached to the browser container
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         
         let targetDeviceId = null;
 
         if (videoDevices.length > 0) {
-            // 2. Scan labels to isolate the 1x main camera (filtering out ultra-wide/telephoto/macro)
-            const mainBackCamera = videoDevices.find(device => {
-                const label = device.label.toLowerCase();
-                return label.includes('back') && 
-                      !label.includes('ultra') && 
-                      !label.includes('wide') && 
-                      !label.includes('tele') &&
-                      !label.includes('macro');
+            // Filter all available rear-facing cameras
+            const rearCameras = videoDevices.filter(d => {
+                const lbl = d.label.toLowerCase();
+                return lbl.includes('back') || lbl.includes('environment') || lbl.includes('rear');
             });
 
-            // 3. Fallback: If labels aren't descriptive, pick any standard back camera
-            const genericBackCamera = videoDevices.find(device => 
-                device.label.toLowerCase().includes('back') || 
-                device.label.toLowerCase().includes('environment')
-            );
+            if (rearCameras.length > 0) {
+                // Priority 1: Match explicit primary/main indicators (often labeled "camera 0" or "main")
+                let primaryLens = rearCameras.find(d => {
+                    const lbl = d.label.toLowerCase();
+                    return lbl.includes('main') || lbl.includes('0') || lbl.includes('1x');
+                });
 
-            // Prioritize the isolated 1x lens ID, fallback to general back camera, or default to first device
-            targetDeviceId = mainBackCamera ? mainBackCamera.deviceId : (genericBackCamera ? genericBackCamera.deviceId : videoDevices[0].deviceId);
+                // Priority 2: Exclude ultra-wide explicitly while preserving standard wide definitions
+                if (!primaryLens) {
+                    primaryLens = rearCameras.find(d => {
+                        const lbl = d.label.toLowerCase();
+                        return !lbl.includes('ultra') && !lbl.includes('dual') && !lbl.includes('triple');
+                    });
+                }
+
+                // Fallback: Default to the first found back-facing device instance if labels match vaguely
+                const finalCameraChoice = primaryLens || rearCameras[0];
+                targetDeviceId = finalCameraChoice.deviceId;
+            }
         }
 
-        // 4. Build constraints using the exact device ID if found
+        // 2. Map resolution anchors using the distinct camera device tracker ID
         const constraints = {
             video: {
                 deviceId: targetDeviceId ? { exact: targetDeviceId } : undefined,
                 facingMode: targetDeviceId ? undefined : "environment",
-                width: { ideal: 1280 },
+                width: { ideal: 1280 },               
                 height: { ideal: 720 },
-                aspectRatio: { ideal: 1.7777777778 }
+                aspectRatio: { ideal: 1.7777777778 } 
             },
             audio: false
         };
 
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        activeStream = stream;
         video.srcObject = stream;
         video.play();
 
     } catch (err) {
         console.error("Camera configuration failed: ", err);
+        // Clean fallback loop: if explicit hardware configurations reject, fire standard default back cam properties
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+            .then(stream => { activeStream = stream; video.srcObject = stream; video.play(); });
     }
 }
 
-// Kick off the initial camera startup execution
-startMainCamera();
+// Kick off core camera engine initialization
+start1xCamera();
 
-// Refactored visibility listener to use our clean 1x stream filter loop
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
-        const tracks = stream ? stream.getTracks() : null;
+        const tracks = activeStream ? activeStream.getTracks() : null;
         if (!tracks || (tracks.length > 0 && tracks[0].readyState === "ended")) {
-            startMainCamera();
+            start1xCamera();
         }
     }
 });
